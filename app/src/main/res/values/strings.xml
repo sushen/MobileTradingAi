@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Trading AI</string>
+    <string name="risk_disclaimer">Risk disclaimer: Crypto and algorithmic markets are highly volatile. No guaranteed profits are promised. Invest only what you can afford to lose.</string>
+</resources>
