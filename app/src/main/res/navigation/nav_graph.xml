@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/homeFragment">
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.tradingai.app.fragments.HomeFragment"
+        android:label="Home"
+        tools:layout="@layout/fragment_home">
+        <action
+            android:id="@+id/action_homeFragment_to_installFragment"
+            app:destination="@id/installFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/installFragment"
+        android:name="com.tradingai.app.fragments.InstallFragment"
+        android:label="Install Bot"
+        tools:layout="@layout/fragment_install" />
+
+    <fragment
+        android:id="@+id/investFragment"
+        android:name="com.tradingai.app.fragments.InvestFragment"
+        android:label="Invest"
+        tools:layout="@layout/fragment_invest" />
+
+    <fragment
+        android:id="@+id/educationFragment"
+        android:name="com.tradingai.app.fragments.EducationFragment"
+        android:label="Education"
+        tools:layout="@layout/fragment_education" />
+
+    <fragment
+        android:id="@+id/affiliateFragment"
+        android:name="com.tradingai.app.fragments.AffiliateFragment"
+        android:label="Affiliate"
+        tools:layout="@layout/fragment_affiliate" />
+
+    <fragment
+        android:id="@+id/profileFragment"
+        android:name="com.tradingai.app.fragments.ProfileFragment"
+        android:label="Profile"
+        tools:layout="@layout/fragment_profile" />
+</navigation>

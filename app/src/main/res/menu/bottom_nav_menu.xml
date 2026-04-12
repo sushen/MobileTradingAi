@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/homeFragment"
+        android:icon="@android:drawable/ic_menu_today"
+        android:title="Home" />
+    <item
+        android:id="@+id/investFragment"
+        android:icon="@android:drawable/ic_menu_view"
+        android:title="Invest" />
+    <item
+        android:id="@+id/educationFragment"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:title="Education" />
+    <item
+        android:id="@+id/affiliateFragment"
+        android:icon="@android:drawable/ic_menu_share"
+        android:title="Affiliate" />
+    <item
+        android:id="@+id/profileFragment"
+        android:icon="@android:drawable/ic_menu_myplaces"
+        android:title="Profile" />
+</menu>
