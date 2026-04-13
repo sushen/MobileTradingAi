@@ -1,15 +1,47 @@
 <resources>
-    <string name="app_name">Trading AI</string>
-    <string name="risk_disclaimer">Risk disclaimer: Crypto and algorithmic markets are highly volatile. No guaranteed profits are promised. Invest only what you can afford to lose.</string>
+    <string name="app_name">ShaplaChottor</string>
+    <string name="tagline">Learn. Build. Trade with AI.</string>
+    <string name="risk_disclaimer">Risk disclaimer: Crypto and algorithmic markets are highly volatile. Education is your best defense. Invest only what you can afford to lose.</string>
+
+    <!-- Navigation -->
+    <string name="title_home">Home</string>
+    <string name="title_courses">Courses</string>
+    <string name="title_my_learning">My Learning</string>
+    <string name="title_advanced">Advanced</string>
+    <string name="title_profile">Profile</string>
+
+    <!-- Home Screen -->
+    <string name="welcome_back">Welcome back, %1$s!</string>
+    <string name="continue_learning">Continue Learning</string>
+    <string name="start_learning">Start Learning</string>
+    <string name="your_progress">Your Progress</string>
+    <string name="explore_courses">Explore our AI trading courses and start your journey today.</string>
+
+    <!-- Advanced / Gating -->
+    <string name="locked_feature">Feature Locked</string>
+    <string name="unlock_requirement">Complete %1$d%% of your courses to unlock this feature.</string>
+    <string name="unlock_bot_install">Unlock Trading Bot Setup (30% Progress)</string>
+    <string name="unlock_investments">Unlock Investment Dashboard (60% Progress)</string>
+    <string name="unlock_affiliate">Unlock Affiliate System (100% Progress)</string>
+
+    <!-- Features (from original app, moved to advanced) -->
+    <string name="trading_bot">Trading Bot</string>
+    <string name="investment_dashboard">Investments</string>
+    <string name="affiliate_system">Affiliates</string>
+
     <string name="install_python">1 Install Python</string>
     <string name="download_bot">2 Download bot</string>
     <string name="connect_api">3 Connect exchange API</string>
     <string name="run_bot">4 Run bot</string>
+
     <string name="starter_plan">Starter Plan</string>
     <string name="pro_plan">Professional Plan</string>
     <string name="inst_plan">Institutional Plan</string>
     <string name="become_investor">Become Investor</string>
+
     <string name="beginner">Beginner</string>
     <string name="intermediate">Intermediate</string>
-    <string name="advanced">Advanced</string>
+    <string name="advanced_level">Advanced</string>
+
+    <string name="default_web_client_id" translatable="false">YOUR_WEB_CLIENT_ID_HERE</string>
 </resources>

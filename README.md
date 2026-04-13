@@ -1,64 +1,57 @@
-# Trading AI Mobile App
+# ShaplaChottor Mobile App
+**AI Research Lab - Learn. Build. Trade.**
 
-A complete Android application for managing a trading AI ecosystem.
+A premium Android application focused on AI-driven trading education and advanced algorithmic tools.
 
 ## Tech Stack
 - **Language:** Kotlin
 - **Architecture:** MVVM + Repository Pattern
 - **UI:** Material 3, ViewBinding, Navigation Component
-- **Backend:** Firebase (Auth, Firestore, Storage, Analytics)
+- **Backend:** Firebase (Google Auth, Firestore, Storage, Analytics)
+- **Package Name:** `com.shaplachottor.app`
 
-## Features
-- **Authentication:** Email/Password & Google Sign-in.
-- **Home:** Introduction to the ecosystem.
-- **Install Bot:** Step-by-step guide to installing the trading bot.
-- **Investor Dashboard:** Browse and select investment plans.
-- **Education:** Tiered courses (Beginner to Advanced) for algorithmic trading.
-- **Affiliate System:** Referral links and earnings tracking.
-- **Profile:** Account management and community links.
+## Core Experience
+1. **Google-First Authentication:** Single-click sign-in with your Google Account for seamless access.
+2. **Education-First:** A structured learning path from Beginner to Advanced AI trading.
+3. **Feature Gating:** Advanced tools (Bot Install, Investments, Affiliates) unlock as you progress through the courses.
+4. **Professional UI:** Clean, modern design under the ShaplaChottor brand.
+5. **Adaptive Branding:** High-resolution vector logos and adaptive icons for all Android devices.
 
 ## Setup Instructions
 
 ### 1. Firebase Configuration
 1. Create a new project in the [Firebase Console](https://console.firebase.google.com/).
-2. Add an Android app with package name `com.tradingai.app`.
-3. Download the `google-services.json` file and place it in the `app/` directory of this project.
-4. Enable **Email/Password** and **Google** sign-in providers in the Firebase Authentication section.
-5. Create a **Cloud Firestore** database in test mode (or configure rules).
-6. Enable **Firebase Storage**.
+2. Add an Android app with package name `com.shaplachottor.app`.
+3. **IMPORTANT:** Provide your SHA-1 certificate for Google Sign-In.
+4. Download the `google-services.json` file and place it in the `app/` directory.
+5. Enable **Google** sign-in provider (Email/Password is no longer used).
+6. Copy your **Web client ID** from the Google provider settings.
 
-### 2. Firestore Structure
-Create the following collections:
-- `users`: Stores user profiles.
-- `investments`: Stores user investment data.
-- `courses`: Stores educational content.
-- `affiliates`: Stores referral data.
-
-### 3. Build & Run
-1. Open the project in **Android Studio**.
-2. Sync the project with Gradle files.
-3. Build the project: `Build > Make Project`.
-4. Run the app on an emulator or physical device.
-
-## Security Rules (Firestore)
-```
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /investments/{investmentId} {
-      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
-    }
-    match /courses/{courseId} {
-      allow read: if request.auth != null;
-    }
-  }
-}
+### 2. Local Configuration
+Update `app/src/main/res/values/strings.xml` with your Web Client ID:
+```xml
+<string name="default_web_client_id">YOUR_WEB_CLIENT_ID_HERE</string>
 ```
 
-## Deployment
-To generate a release APK:
-1. Go to `Build > Generate Signed Bundle / APK...`
-2. Follow the wizard to create a keystore and sign your app.
+### 3. Signing Fingerprints
+Ensure your debug and release SHA-1 fingerprints are added to the Firebase project settings to enable Google Authentication.
+
+### 4. Firestore Structure
+The app expects a `users` collection with the following document structure:
+- `name`: String
+- `progress`: Number (0-100)
+- `role`: String ("student")
+- `enrolledCourses`: Array
+
+### 4. Build & Run
+1. Open in **Android Studio**.
+2. **Sync Project with Gradle Files**.
+3. Build and Run.
+
+## Feature Gating Logic
+- **Bot Setup**: Unlocks at 30% course progress.
+- **Investments**: Unlocks at 60% course progress.
+- **Affiliate System**: Unlocks at 100% course progress.
+
+---
+© 2026 ShaplaChottor AI Research Lab

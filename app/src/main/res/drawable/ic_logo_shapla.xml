@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Outer Ring -->
+    <path
+        android:pathData="M60,10 C32.4,10 10,32.4 10,60 C10,87.6 32.4,110 60,110 C87.6,110 110,87.6 110,60 C110,32.4 87.6,10 60,10 Z M60,102 C36.8,102 18,83.2 18,60 C18,36.8 36.8,18 60,18 C83.2,18 102,36.8 102,60 C102,83.2 83.2,102 60,102 Z"
+        android:fillColor="?attr/colorPrimary" />
+    <!-- Abstract Lotus / Flower Core -->
+    <path
+        android:pathData="M60,35 L70,55 L90,60 L70,65 L60,85 L50,65 L30,60 L50,55 Z"
+        android:fillColor="?attr/colorSecondary" />
+    <!-- AI Elements (Dots) -->
+    <path
+        android:pathData="M60,25 A5,5 0 1,1 60,35 A5,5 0 1,1 60,25"
+        android:fillColor="?attr/colorPrimary" />
+    <path
+        android:pathData="M95,60 A5,5 0 1,1 95,70 A5,5 0 1,1 95,60"
+        android:fillColor="?attr/colorPrimary" />
+    <path
+        android:pathData="M60,95 A5,5 0 1,1 60,105 A5,5 0 1,1 60,95"
+        android:fillColor="?attr/colorPrimary" />
+    <path
+        android:pathData="M25,60 A5,5 0 1,1 25,70 A5,5 0 1,1 25,60"
+        android:fillColor="?attr/colorPrimary" />
+</vector>

@@ -1,12 +1,21 @@
-# Gradle files
-.gradle/
+# Built artifacts
+bin/
+gen/
+out/
 build/
+.gradle/
 
 # Local configuration file (sdk path, etc)
 local.properties
 
 # Log/OS Files
 *.log
+*.xml
+*.json
+!google-services.json
+!firestore.rules
+!package.json
+!composer.json
 
 # Android Studio generated files and folders
 captures/
@@ -19,9 +28,9 @@ output-metadata.json
 # IntelliJ
 *.iml
 .idea/
-misc.xml
-deploymentTargetDropDown.xml
-render.experimental.xml
+cmake-build-*/
+*.ipr
+*.iws
 
 # Keystore files
 *.jks
@@ -29,6 +38,21 @@ render.experimental.xml
 
 # Google Services (e.g. APIs or Firebase)
 google-services.json
+!app/google-services.json
+# !/app/google-services.json (Remove this line if you want to keep your keys private)
 
 # Android Profiling
 *.hprof
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# User-specific stuff
+.navigation/
+.settings/
+.project
+.classpath
+.factorypath

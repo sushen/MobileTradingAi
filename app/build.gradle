@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace 'com.tradingai.app'
+    namespace 'com.shaplachottor.app'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.tradingai.app"
+        applicationId "com.shaplachottor.app"
         minSdk 24
         targetSdk 34
         versionCode 1

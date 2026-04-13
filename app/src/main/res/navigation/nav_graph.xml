@@ -7,41 +7,51 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.tradingai.app.fragments.HomeFragment"
-        android:label="Home"
-        tools:layout="@layout/fragment_home">
-        <action
-            android:id="@+id/action_homeFragment_to_installFragment"
-            app:destination="@id/installFragment" />
-    </fragment>
+        android:name="com.shaplachottor.app.fragments.HomeFragment"
+        android:label="@string/title_home"
+        tools:layout="@layout/fragment_home" />
 
     <fragment
+        android:id="@+id/educationFragment"
+        android:name="com.shaplachottor.app.fragments.EducationFragment"
+        android:label="@string/title_courses"
+        tools:layout="@layout/fragment_education" />
+
+    <fragment
+        android:id="@+id/myLearningFragment"
+        android:name="com.shaplachottor.app.fragments.MyLearningFragment"
+        android:label="@string/title_my_learning"
+        tools:layout="@layout/fragment_education" />
+
+    <fragment
+        android:id="@+id/advancedFragment"
+        android:name="com.shaplachottor.app.fragments.AdvancedFragment"
+        android:label="@string/title_advanced"
+        tools:layout="@layout/fragment_advanced" />
+
+    <fragment
+        android:id="@+id/profileFragment"
+        android:name="com.shaplachottor.app.fragments.ProfileFragment"
+        android:label="@string/title_profile"
+        tools:layout="@layout/fragment_profile" />
+
+    <!-- Secondary fragments accessible from Advanced -->
+    <fragment
         android:id="@+id/installFragment"
-        android:name="com.tradingai.app.fragments.InstallFragment"
+        android:name="com.shaplachottor.app.fragments.InstallFragment"
         android:label="Install Bot"
         tools:layout="@layout/fragment_install" />
 
     <fragment
         android:id="@+id/investFragment"
-        android:name="com.tradingai.app.fragments.InvestFragment"
+        android:name="com.shaplachottor.app.fragments.InvestFragment"
         android:label="Invest"
         tools:layout="@layout/fragment_invest" />
 
     <fragment
-        android:id="@+id/educationFragment"
-        android:name="com.tradingai.app.fragments.EducationFragment"
-        android:label="Education"
-        tools:layout="@layout/fragment_education" />
-
-    <fragment
         android:id="@+id/affiliateFragment"
-        android:name="com.tradingai.app.fragments.AffiliateFragment"
+        android:name="com.shaplachottor.app.fragments.AffiliateFragment"
         android:label="Affiliate"
         tools:layout="@layout/fragment_affiliate" />
 
-    <fragment
-        android:id="@+id/profileFragment"
-        android:name="com.tradingai.app.fragments.ProfileFragment"
-        android:label="Profile"
-        tools:layout="@layout/fragment_profile" />
 </navigation>

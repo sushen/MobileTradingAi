@@ -15,7 +15,7 @@
         tools:targetApi="31">
 
         <activity
-            android:name="com.tradingai.app.activities.SplashActivity"
+            android:name="com.shaplachottor.app.activities.SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,19 +24,19 @@
         </activity>
 
         <activity
-            android:name="com.tradingai.app.activities.MainActivity"
+            android:name="com.shaplachottor.app.activities.MainActivity"
             android:exported="false" />
 
         <activity
-            android:name="com.tradingai.app.activities.LoginActivity"
+            android:name="com.shaplachottor.app.activities.LoginActivity"
             android:exported="false" />
 
         <activity
-            android:name="com.tradingai.app.activities.RegisterActivity"
+            android:name="com.shaplachottor.app.activities.RegisterActivity"
             android:exported="false" />
 
         <activity
-            android:name="com.tradingai.app.activities.ForgotPasswordActivity"
+            android:name="com.shaplachottor.app.activities.ForgotPasswordActivity"
             android:exported="false" />
 
     </application>
