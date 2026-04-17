@@ -9,8 +9,109 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.role == 'admin';
     }
 
+    function phaseIds() {
+      return ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6'];
+    }
+
+    function phaseLevels() {
+      return ['Beginner', 'Intermediate', 'Advanced'];
+    }
+
+    function phaseKeys() {
+      return [
+        'phaseId',
+        'title',
+        'description',
+        'focus',
+        'outcome',
+        'identityShift',
+        'level',
+        'order',
+        'totalSeats',
+        'bookedSeats',
+        'isLocked'
+      ];
+    }
+
+    function requiredPhaseKeys() {
+      return ['phaseId', 'title', 'description', 'level', 'order', 'totalSeats', 'bookedSeats'];
+    }
+
+    function bookingKeys() {
+      return [
+        'bookingId',
+        'userId',
+        'phaseId',
+        'phoneNumber',
+        'whatsappNumber',
+        'createdAt',
+        'expiresAt',
+        'status'
+      ];
+    }
+
+    function validBooking(data, bookingId, userId) {
+      return data.keys().hasOnly(bookingKeys())
+        && data.bookingId == bookingId
+        && data.userId == userId
+        && data.phaseId in phaseIds()
+        && data.phoneNumber is string
+        && data.phoneNumber.size() > 0
+        && data.whatsappNumber is string
+        && data.whatsappNumber.size() > 0
+        && data.createdAt is int
+        && data.expiresAt is int
+        && data.expiresAt > data.createdAt;
+    }
+
     match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+    }
+
+    match /phases/{phaseId} {
+      allow read: if isSignedIn();
+
+      allow create: if isAdmin() || (
+        isSignedIn()
+        && phaseId in phaseIds()
+        && request.resource.data.phaseId == phaseId
+        && request.resource.data.keys().hasAll(requiredPhaseKeys())
+        && request.resource.data.keys().hasOnly(phaseKeys())
+        && request.resource.data.title is string
+        && request.resource.data.description is string
+        && request.resource.data.level in phaseLevels()
+        && request.resource.data.order is int
+        && request.resource.data.totalSeats is int
+        && request.resource.data.totalSeats > 0
+        && request.resource.data.bookedSeats is int
+        && request.resource.data.bookedSeats >= 0
+        && request.resource.data.bookedSeats <= request.resource.data.totalSeats
+      );
+
+      allow update: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow create: if isSignedIn()
+        && validBooking(request.resource.data, bookingId, request.auth.uid)
+        && request.resource.data.status == 'pending';
+
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if (
+        isAdmin()
+        && validBooking(request.resource.data, bookingId, resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.phaseId == resource.data.phaseId
+        && request.resource.data.status in ['pending', 'approved', 'expired']
+      ) || (
+        isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && validBooking(request.resource.data, bookingId, request.auth.uid)
+        && request.resource.data.phaseId == resource.data.phaseId
+        && resource.data.status != 'approved'
+        && request.resource.data.status in ['pending', 'expired']
+      );
+      allow delete: if false;
     }
 
     match /investments/{investmentId} {

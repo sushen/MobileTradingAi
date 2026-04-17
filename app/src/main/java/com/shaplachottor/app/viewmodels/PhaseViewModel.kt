@@ -1,0 +1,48 @@
+package com.shaplachottor.app.viewmodels
+
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.shaplachottor.app.models.Booking
+import com.shaplachottor.app.models.BookingRequestResult
+import com.shaplachottor.app.models.Phase
+import com.shaplachottor.app.repositories.PhaseRepository
+import kotlinx.coroutines.launch
+
+class PhaseViewModel(private val repository: PhaseRepository) : ViewModel() {
+
+    private val _allPhases = MutableLiveData<List<Phase>>()
+    private val _filteredPhases = MutableLiveData<List<Phase>>()
+    val phases: LiveData<List<Phase>> = _filteredPhases
+
+    private val _bookingStates = MutableLiveData<Map<String, Booking>>(emptyMap())
+    val bookingStates: LiveData<Map<String, Booking>> = _bookingStates
+
+    private val _bookingResult = MutableLiveData<BookingRequestResult>()
+    val bookingResult: LiveData<BookingRequestResult> = _bookingResult
+
+    private var selectedLevel: String = "Beginner"
+
+    fun loadPhases() {
+        viewModelScope.launch {
+            val phases = repository.getPhases()
+            _allPhases.value = phases
+            _bookingStates.value = repository.getCurrentUserBookings(phases)
+            filterByLevel(selectedLevel)
+        }
+    }
+
+    fun filterByLevel(level: String) {
+        selectedLevel = level
+        _filteredPhases.value = _allPhases.value?.filter { it.level.equals(level, ignoreCase = true) }
+            ?.sortedBy { it.order }
+    }
+
+    fun requestSeat(phase: Phase, phoneNumber: String, whatsappNumber: String) {
+        viewModelScope.launch {
+            _bookingResult.value = repository.requestSeat(phase, phoneNumber, whatsappNumber)
+            loadPhases()
+        }
+    }
+}

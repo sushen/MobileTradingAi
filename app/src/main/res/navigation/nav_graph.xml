@@ -9,7 +9,31 @@
         android:id="@+id/homeFragment"
         android:name="com.shaplachottor.app.fragments.HomeFragment"
         android:label="@string/title_home"
-        tools:layout="@layout/fragment_home" />
+        tools:layout="@layout/fragment_home" >
+        <action
+            android:id="@+id/action_homeFragment_to_phasesFragment"
+            app:destination="@id/phasesFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/phasesFragment"
+        android:name="com.shaplachottor.app.fragments.PhasesFragment"
+        android:label="Learning Phases"
+        tools:layout="@layout/fragment_phases">
+        <action
+            android:id="@+id/action_phasesFragment_to_classroomFragment"
+            app:destination="@id/classroomFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/classroomFragment"
+        android:name="com.shaplachottor.app.fragments.ClassroomFragment"
+        android:label="Classroom"
+        tools:layout="@layout/fragment_classroom">
+        <argument
+            android:name="phaseId"
+            app:argType="string" />
+    </fragment>
 
     <fragment
         android:id="@+id/educationFragment"
@@ -21,7 +45,14 @@
         android:id="@+id/myLearningFragment"
         android:name="com.shaplachottor.app.fragments.MyLearningFragment"
         android:label="@string/title_my_learning"
-        tools:layout="@layout/fragment_education" />
+        tools:layout="@layout/fragment_my_learning" >
+        <action
+            android:id="@+id/action_myLearningFragment_to_phasesFragment"
+            app:destination="@id/phasesFragment" />
+        <action
+            android:id="@+id/action_myLearningFragment_to_classroomFragment"
+            app:destination="@id/classroomFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/advancedFragment"

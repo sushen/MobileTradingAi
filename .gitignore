@@ -56,3 +56,9 @@ Thumbs.db
 .project
 .classpath
 .factorypath
+
+# Firebase Functions
+functions/node_modules/
+functions/.env
+functions/.env.*
+!functions/.env.example

@@ -1,0 +1,99 @@
+You are a senior software architect and codebase analyst.
+
+Your task is to analyze the provided codebase and generate a structured memory file called:
+
+👉 AI-context.md
+
+---
+
+## OBJECTIVE
+
+---
+
+Create a persistent, reusable understanding of the project so future tasks do NOT require re-analyzing the full codebase.
+
+---
+
+## ANALYSIS INSTRUCTIONS
+
+---
+
+* Read all available project files
+* Understand architecture, features, and flow
+* Do NOT assume anything not present in code
+* Be precise and structured
+
+---
+
+## OUTPUT: AI-context.md
+
+---
+
+# AI Context
+
+## 1. Project Overview
+
+* What this app does
+* Core purpose
+
+## 2. Tech Stack
+
+* Languages
+* Frameworks (e.g., Android, Jetpack Compose, etc.)
+* Key libraries
+
+## 3. Architecture
+
+* Pattern used (MVVM / Clean / etc.)
+* How data flows
+
+## 4. Implemented Features
+
+List clearly:
+
+* Feature name
+* What is completed
+* What part is partial (if any)
+
+## 5. Key Files & Responsibilities
+
+* File name → role
+
+## 6. Current System Behavior
+
+* How the app currently works (user flow)
+
+## 7. Known Issues / Weaknesses
+
+* Bugs
+* Poor structure
+* Missing validation
+* Performance risks
+
+## 8. Next Recommended Features (Top 3–5)
+
+For each:
+
+* Feature name
+* Why it matters
+* Complexity (Low/Medium/High)
+
+## 9. Development State Summary
+
+* % completion estimate
+* What stage (early / mid / near production)
+
+---
+
+## RULES
+
+---
+
+* Keep it structured and scannable
+* No unnecessary explanations
+* No hallucinated features
+* Think like a senior engineer documenting for future AI
+
+---
+
+Now generate AI-context.md.

@@ -43,5 +43,9 @@
     <string name="intermediate">Intermediate</string>
     <string name="advanced_level">Advanced</string>
 
+    <string name="booking_phone_hint">Phone number</string>
+    <string name="booking_whatsapp_hint">WhatsApp number</string>
+    <string name="booking_request_note">Submit both numbers to request a seat. Approval is manual and expires after 15 minutes.</string>
+
     <string name="default_web_client_id" translatable="false">YOUR_WEB_CLIENT_ID_HERE</string>
 </resources>

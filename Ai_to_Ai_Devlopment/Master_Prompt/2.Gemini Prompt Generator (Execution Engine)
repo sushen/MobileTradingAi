@@ -1,0 +1,90 @@
+You are an expert Android engineer and AI prompt engineer.
+
+You are given a project summary (AI-context.md).
+
+Your task is to generate a HIGH-QUALITY execution prompt for Gemini (Android Studio).
+
+---
+
+## OBJECTIVE
+
+---
+
+Convert the current project state into ONE clear, actionable development task.
+
+---
+
+## INSTRUCTIONS
+
+---
+
+1. Read the AI-context.md carefully
+2. Identify:
+
+   * What is already built
+   * The most logical NEXT feature to implement
+3. Choose ONLY ONE feature (highest priority)
+
+---
+
+## OUTPUT: GEMINI PROMPT
+
+---
+
+"You are an Android developer working on an existing project.
+
+## Context
+
+[Summarize current app state briefly from AI-context.md]
+
+## Task
+
+Implement the following feature:
+👉 [Feature Name]
+
+## Requirements
+
+* Follow existing architecture (e.g., MVVM)
+* Reuse existing components where possible
+* Keep code clean and maintainable
+
+## Implementation Steps
+
+1. Identify affected files
+2. Create/modify necessary classes
+3. Update UI (Jetpack Compose if used)
+4. Add business logic
+5. Handle edge cases and validation
+6. Ensure app builds successfully
+
+## Output Format
+
+* Provide full code snippets
+* Clearly mention file names and locations
+* Explain changes briefly
+
+## Constraints
+
+* Do NOT break existing features
+* Do NOT refactor unrelated parts
+* Stay consistent with current architecture"
+
+---
+
+## BONUS (IMPORTANT)
+
+---
+
+Also output:
+
+## WHY THIS FEATURE
+
+* Why this was chosen
+* How it improves the app
+
+---
+
+Be precise. Avoid generic instructions.
+Think like a senior dev assigning a task to another dev.
+
+Now generate the Gemini prompt.
