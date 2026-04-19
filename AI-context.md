@@ -2,362 +2,232 @@
 
 ## 1. Project Overview
 
-- `MobileTradingAi` is an Android app branded as `ShaplaChottor`.
-- The implemented product is an education-first access shell for AI/trading learning, not a mobile trading executor.
-- The core working flow is:
-  - sign in with Google
-  - create or sync the Firestore user document
-  - seed a fixed six-phase curriculum
-  - request access to a phase by submitting phone and WhatsApp numbers
-  - wait for manual admin approval
-  - enter the classroom only after approval
-  - track progress and unlock advanced sections as learning progress increases
-- The repo also contains a Firebase Cloud Function that emails the master admin when a booking request becomes a fresh `pending` request.
-- Investment, affiliate, install, and education screens exist, but they are mostly informational or placeholder UX compared with the phase/classroom flow.
+* Android app name: `ShaplaChottor`; Gradle root project name: `TradingAI`.
+* Package/application ID: `com.shaplachottor.app`.
+* Core purpose from README, docs, resources, and code: a mobile gateway for AI trading education, progressive learning phases, manual seat booking/approval, and later gated access to bot setup, investment, and affiliate areas.
+* The app does not contain trading execution logic. Existing docs describe it as a gateway ecosystem for a Windows Trading AI bot.
+* Current repo state is incomplete and not buildable without restoring missing source/resources and Firebase configuration.
 
 ## 2. Tech Stack
 
-- Languages:
-  - Kotlin for the Android app
-  - JavaScript for Firebase Cloud Functions
-- Android stack:
-  - Android SDK
-  - XML layouts with ViewBinding
-  - Material 3
-  - Navigation Component with Safe Args
-  - `ViewModel` + `LiveData`
-- Async:
-  - Kotlin coroutines
-  - `kotlinx-coroutines-play-services`
-- Firebase:
-  - Firebase Authentication
-  - Cloud Firestore
-  - Firebase Storage
-  - Firebase Analytics
-  - Firebase Cloud Functions v2 Firestore trigger
-- Key libraries:
-  - Google Play Services Auth (`GoogleSignIn`)
-  - `firebase-admin`
-  - `firebase-functions`
-  - `nodemailer`
-  - Glide
-  - JUnit4
-  - MockK
-  - Espresso
-  - Fragment testing
-- Build/runtime versions:
-  - AGP `8.5.1`
-  - Kotlin plugin `2.1.0`
-  - `compileSdk 34`
-  - `minSdk 24`
-  - Java/Kotlin target `17`
-  - Functions runtime `nodejs20`
+* Language: Kotlin.
+* Platform: Android native app.
+* UI approach: XML layouts with ViewBinding, Material Components/Material 3 styling, RecyclerView, BottomNavigationView, Navigation Component.
+* Architecture dependencies: AndroidX Lifecycle ViewModel, LiveData, `viewModelScope`.
+* Backend dependencies: Firebase Auth, Firestore, Storage, Analytics through Firebase BoM.
+* Auth-related dependency: Google Play Services Auth.
+* Async support: Kotlin coroutines and `kotlinx-coroutines-play-services`.
+* Image loading dependency: Glide.
+* Build tools: Android Gradle Plugin `8.5.1`, Kotlin Android plugin `2.1.0`, Java 17 target, compileSdk/targetSdk `34`, minSdk `24`.
+* Gradle wrapper metadata points to Gradle `9.0.0`.
 
 ## 3. Architecture
 
-- Pattern:
-  - MVVM-style Android app with repositories, but not strict clean architecture.
-- Core data access pattern:
-  - `AppGraph` acts as a small service locator.
-  - `AuthSessionProvider` abstracts the signed-in Firebase user.
-  - `AppStore` abstracts Firestore reads/writes for `users`, `phases`, and `bookings`.
-  - `UserRepository` and `PhaseRepository` use those abstractions.
-- Actual architecture is mixed:
-  - `PhaseRepository` and `UserRepository` use abstractions and are testable.
-  - `HomeViewModel`, `MyLearningViewModel`, `AdvancedViewModel`, and part of `ClassroomViewModel` still talk directly to Firebase SDKs.
-- Main app flow:
-  - `TradingAIApplication` initializes Firebase.
-  - `SplashActivity` checks auth, syncs the user doc, seeds phases, then opens `MainActivity`.
-  - `LoginActivity` performs Google sign-in, then syncs user data and seeds phases.
-  - `MainActivity` hosts a `NavHostFragment` and bottom navigation.
-  - `PhasesFragment` + `PhaseViewModel` + `PhaseRepository` drive phase listing and booking requests.
-  - `ClassroomFragment` + `ClassroomViewModel` + `PhaseRepository` drive classroom access and progress updates.
-- Backend flow:
-  - `functions/index.js` registers `notifyAdminOfBookingRequest`.
-  - The function listens to `bookings/{bookingId}` writes.
-  - It sends an SMTP email to the admin when a booking becomes a new `pending` request.
-  - It writes `adminNotification` metadata back into the booking document after successful delivery.
+* Intended pattern: MVVM plus Repository pattern.
+* UI layer:
+  * `PhasesFragment` and `ClassroomFragment` render screens and observe ViewModel LiveData.
+  * `PhaseAdapter` and `LessonAdapter` render RecyclerView items.
+* ViewModel layer:
+  * `PhaseViewModel` loads phases, filters by level, exposes booking state, and delegates seat requests.
+  * `ClassroomViewModel` enforces phase access, loads phase lessons, fetches current user progress, and toggles lesson completion.
+  * `MyLearningViewModel` listens to the current Firestore user document and resolves current/completed phases.
+* Repository/data layer:
+  * `PhaseRepository` owns phase seeding, phase lookup, hardcoded lesson lists, progress updates, booking requests, booking approval/expiration helpers, and phase-access checks.
+  * `PhaseRepository` depends on `AppGraph`, `AppStore`, `AuthSessionProvider`, and `PhaseCatalog`, but those classes are not present in the current repo.
+* Data flow currently intended by code:
+  * Fragment -> ViewModel -> `PhaseRepository` -> missing `AppStore`/Firebase-backed store.
+  * Some ViewModels bypass the repository and call `FirebaseAuth`/`FirebaseFirestore` directly, so data access is inconsistent.
+* Navigation:
+  * `activity_main.xml` hosts a `NavHostFragment` using `nav_graph.xml`.
+  * `bottom_nav_menu.xml` defines Home, Courses/Phases, My Learning, Advanced, and Profile tabs.
 
 ## 4. Implemented Features
 
-### Google Sign-In and startup bootstrap
+* Learning phase model
+  * Completed: `Phase` model with title, description, focus, outcome, identity shift, level, order, seats, lock state, `availableSeats`, and `isAvailable`.
+  * Partial: canonical phase source is referenced as `PhaseCatalog`, but `PhaseCatalog` is missing.
 
-- Completed:
-  - Google sign-in is implemented in `LoginActivity`.
-  - Startup auth gating is implemented in `SplashActivity`.
-  - Signed-in users have their Firestore profile synced and canonical phases seeded.
-- Partial:
-  - Login uses deprecated `GoogleSignIn` APIs.
-  - If Firestore profile sync fails after Firebase auth succeeds, the user can remain authenticated but stay on the login screen.
-  - `SplashActivity` does not stop navigation if user sync or phase seeding fails.
+* Booking model and booking request logic
+  * Completed: `Booking` model supports `pending`, `approved`, `expired`, legacy `booked`, 15-minute expiration, contact fields, and booking IDs.
+  * Completed in repository logic: blank contact validation, duplicate pending/approved checks, seat availability checks, pending booking creation.
+  * Partial: actual persistence depends on missing `AppStore`; admin approval UI/backend caller is not present.
 
-### Firestore user profile sync
+* Phase list screen
+  * Completed in Kotlin: `PhasesFragment`, `PhaseViewModel`, and `PhaseAdapter` implement level filtering, seat status display, booking status display, booking dialog flow, and navigation to classroom for unlocked phases.
+  * Partial/blocking: required XML resources are missing: `fragment_phases.xml`, `dialog_booking_request.xml`, `item_phase.xml`, and lock drawables `ic_lock_open`/`ic_lock_closed`.
+  * Partial/blocking: `User`, `UserRepository`, `BookingRequestOutcome`, and `BookingRequestResult` are referenced but missing.
 
-- Completed:
-  - `UserRepository.ensureCurrentUserDocument()` merges `id`, `name`, and `email` into `users/{uid}`.
-  - `UserRepository.fetchCurrentUser()` exposes the current user via `LiveData`.
-- Partial:
-  - Only minimal identity fields are actively synced.
-  - Profile screen UI does not render this data.
+* Classroom screen
+  * Completed in Kotlin: `ClassroomFragment`, `ClassroomViewModel`, `ClassroomViewModelFactory`, and `LessonAdapter` implement access check, lesson list rendering, progress display, lesson completion toggles, and completion dialog.
+  * Partial/blocking: required XML resources are missing: `fragment_classroom.xml` and `item_lesson.xml`.
+  * Partial: lessons are hardcoded in `PhaseRepository.getLessonsForPhase`; lesson completion is not tracked per lesson ID, only by phase progress increments.
 
-### Six-phase curriculum
+* Progress and feature gating
+  * Completed in repository logic: phase progress changes in thirds based on 3 hardcoded lessons; completed phases list updates at 100%; overall progress averages all canonical phases; feature flags unlock at 30%, 60%, and 100%.
+  * Partial/blocking: depends on missing `User`, `PhaseCatalog`, and `AppStore`.
+  * Weakness: `lessonId` is accepted but not used to prevent duplicate progress increments.
 
-- Completed:
-  - `PhaseCatalog` defines six canonical phases.
-  - `PhaseRepository.ensurePhasesSeeded()` inserts them when `phases` is empty.
-  - `PhasesFragment` shows phases in `Beginner`, `Intermediate`, and `Advanced` tabs.
-- Partial:
-  - The repo only seeds when the collection is empty; it does not repair partial or corrupted catalogs.
-  - Optional phase fields such as `focus`, `outcome`, and `identityShift` exist in the model/UI but the seeded catalog does not populate them.
+* Static UI/resources
+  * Completed as XML only: login, register, forgot password, main shell, home, education, install, invest, affiliate, profile, course item, investment plan item.
+  * Partial/blocking: corresponding activities/fragments for most of these layouts are missing.
 
-### Booking request workflow
+* Firebase and Firestore setup documentation
+  * Completed: `README.md`, `docs/firebase_setup.md`, `docs/firestore_database_structure.md`, `docs/web3_integration_template.md`, and `firestore.rules` document Firebase setup, collections, rules, booking behavior, Web3 principles, and feature gating.
+  * Partial: README references `functions/` and `docs/firebase_functions_setup.md`, but neither exists in the current repo.
 
-- Completed:
-  - Locked phases open a booking dialog that requires phone and WhatsApp numbers.
-  - `PhaseRepository.requestSeat()` writes `bookings/{userId_phaseId}` with `status = pending`.
-  - Bookings include `createdAt` and `expiresAt` with a 15-minute window.
-  - Pending and expired states are surfaced in the phase list UI.
-  - Classroom access checks only unlocked phases.
-- Partial:
-  - There is no in-app admin approval UI.
-  - Approval and expiry are repository/backend concepts, not a surfaced admin workflow inside the Android app.
-  - Expiry is normalized lazily when bookings are loaded/requested/approved; there is no scheduled server-side expiry job.
+* Authentication
+  * Partial/documented: README and login layout indicate Google-first authentication.
+  * Blocking: `SplashActivity`, `LoginActivity`, `RegisterActivity`, `ForgotPasswordActivity`, `TradingAIApplication`, and auth repositories/session implementation are missing.
 
-### Admin notification backend
-
-- Completed:
-  - A Firebase Cloud Function emails the master admin when a booking becomes a fresh `pending` request.
-  - The default admin email is `sushen.biswas.aga@gmail.com`.
-  - Function setup docs and env template files exist.
-- Partial:
-  - Delivery depends on external deployment plus SMTP configuration and the `SMTP_PASSWORD` secret.
-  - There are no automated tests for the function.
-  - There is no retry dashboard or alternate notification channel.
-
-### Manual approval semantics
-
-- Completed:
-  - `PhaseRepository.approveBooking()` marks bookings `approved`, increments `bookedSeats`, and unlocks the phase in `users/{uid}.unlockedPhases`.
-  - `PhaseRepository.expireBooking()` can expire non-approved bookings.
-- Partial:
-  - These approval methods are not wired to any shipped admin UI.
-  - Approval is not implemented as a Firestore transaction.
-
-### Classroom and progress tracking
-
-- Completed:
-  - `ClassroomFragment` renders a phase classroom and lesson list.
-  - `PhaseRepository.updateLessonProgress()` updates `phaseProgress`, `completedPhases`, overall `progress`, and advanced feature flags.
-  - Advanced unlock thresholds are enforced at `30%`, `60%`, and `100%`.
-- Partial:
-  - All phases reuse the same three hardcoded lessons.
-  - Lesson completion is not stored per lesson, only as phase-level percentages.
-  - The checkbox state is therefore not durable or trustworthy across sessions.
-
-### Home, My Learning, and Advanced screens
-
-- Completed:
-  - Home shows the user name, overall progress, and the latest unlocked phase.
-  - My Learning shows the current unlocked phase and completed phases.
-  - Advanced shows gated cards for bot install, investments, and affiliate tools.
-- Partial:
-  - Home's three advanced buttons are only enabled/disabled; they do not navigate.
-  - My Learning resume state is phase-level only.
-  - Advanced destinations are mostly placeholder content.
-
-### Legacy email/password auth screens
-
-- Completed:
-  - Register and forgot-password activities are implemented and declared in the manifest.
-- Partial:
-  - They are not connected to the Google-first primary UX.
-  - Validation is minimal.
-
-### Education, investment, install, and affiliate sections
-
-- Completed:
-  - Screens and adapters exist.
-  - Static content, links, and placeholder cards render.
-- Partial:
-  - Education content is hardcoded and separate from the phase/classroom system.
-  - Investment plans are static and do not create `investments`.
-  - Affiliate data is static placeholder text.
-  - Install only opens an external GitHub URL.
-
-### Automated testing
-
-- Completed:
-  - Unit tests cover `UserRepository`, `PhaseRepository`, and `PhaseViewModel`.
-  - Instrumentation tests cover core `PhasesFragment` behavior.
-  - Fake auth/store implementations support repository and fragment tests.
-- Partial:
-  - There is no automated coverage for most fragments, auth activities, advanced flows, or the Cloud Function backend.
+* Web3/investment/affiliate/admin
+  * Partial/documented/static only: docs and XML layouts describe or display these areas.
+  * Not implemented in current Kotlin source: wallet connection, transaction submission, investment history, affiliate tracking logic, admin dashboard, course management, and investment enable/disable controls.
 
 ## 5. Key Files & Responsibilities
 
-- `app/src/main/java/com/shaplachottor/app/TradingAIApplication.kt`
-  - Initializes Firebase at app startup.
-- `app/src/main/java/com/shaplachottor/app/firebase/FirebaseManager.kt`
-  - Central singleton access to Firebase Auth, Firestore, Storage, and Analytics.
-- `app/src/main/java/com/shaplachottor/app/data/AppGraph.kt`
-  - Service locator plus test-overridable auth/store abstractions.
-- `app/src/main/java/com/shaplachottor/app/data/PhaseCatalog.kt`
-  - Canonical six-phase curriculum.
-- `app/src/main/java/com/shaplachottor/app/repository/UserRepository.kt`
-  - Syncs/fetches the Firestore user profile.
-- `app/src/main/java/com/shaplachottor/app/repositories/PhaseRepository.kt`
-  - Seeds phases, reads phase data, handles booking requests, approval/expiry logic, classroom access checks, and progress updates.
-- `app/src/main/java/com/shaplachottor/app/activities/SplashActivity.kt`
-  - Startup auth gate and bootstrap flow.
-- `app/src/main/java/com/shaplachottor/app/activities/LoginActivity.kt`
-  - Google sign-in and post-auth bootstrap.
-- `app/src/main/java/com/shaplachottor/app/activities/MainActivity.kt`
-  - Main navigation shell with bottom navigation.
-- `app/src/main/java/com/shaplachottor/app/fragments/PhasesFragment.kt`
-  - Phase tabs, booking dialog, pending-state handling, classroom navigation.
-- `app/src/main/java/com/shaplachottor/app/viewmodels/PhaseViewModel.kt`
-  - Loads phases, filters by level, loads booking states, and submits booking requests.
-- `app/src/main/java/com/shaplachottor/app/adapters/PhaseAdapter.kt`
-  - Renders phase cards, booking button states, and pending/expired/approved messages.
-- `app/src/main/java/com/shaplachottor/app/fragments/ClassroomFragment.kt`
-  - Classroom screen and lesson interactions.
-- `app/src/main/java/com/shaplachottor/app/viewmodels/ClassroomViewModel.kt`
-  - Access checks, phase/lesson loading, progress refresh after toggles.
-- `app/src/main/java/com/shaplachottor/app/fragments/HomeFragment.kt`
-  - Home dashboard UI.
-- `app/src/main/java/com/shaplachottor/app/viewmodels/HomeViewModel.kt`
-  - Direct Firestore listener for user progress and current phase.
-- `app/src/main/java/com/shaplachottor/app/fragments/MyLearningFragment.kt`
-  - Current learning state and completed phases UI.
-- `app/src/main/java/com/shaplachottor/app/viewmodels/MyLearningViewModel.kt`
-  - Direct Firebase listeners for current phase and completed phases.
-- `app/src/main/java/com/shaplachottor/app/fragments/AdvancedFragment.kt`
-  - Gated advanced tools screen.
-- `app/src/main/java/com/shaplachottor/app/viewmodels/AdvancedViewModel.kt`
-  - Direct Firestore listener for overall progress and unlock checks.
-- `app/src/main/res/navigation/nav_graph.xml`
-  - Declares destinations and classroom `phaseId` argument.
-- `firestore.rules`
-  - Firestore security rules for users, phases, bookings, and placeholder collections.
-- `functions/index.js`
-  - Cloud Function that emails the admin on new pending booking requests.
-- `functions/package.json`
-  - Functions runtime dependencies and verification script.
-- `docs/firebase_setup.md`
-  - Firebase/Auth/Firestore setup steps.
-- `docs/firebase_functions_setup.md`
-  - SMTP secret/env setup for the admin notification backend.
-- `app/src/debug/java/com/shaplachottor/app/testing/FakeAppStore.kt`
-  - In-memory fake Firestore-like store for tests.
-- `app/src/debug/java/com/shaplachottor/app/testing/FakeAuthSessionProvider.kt`
-  - Fake signed-in user provider for tests.
-- `app/src/test/...` and `app/src/androidTest/...`
-  - Current automated coverage.
-- `prompt` and `Ai_to_Ai_Devlopment/Master_Prompt/*`
-  - AI workflow artifacts describing a broader product vision; not runtime code.
+* `settings.gradle` -> declares root project `TradingAI` and includes `:app`.
+* `build.gradle` -> root plugin versions for Android, Kotlin, Google Services, and Navigation Safe Args.
+* `gradle.properties` -> AndroidX and Gradle JVM settings.
+* `gradle/wrapper/gradle-wrapper.properties` -> Gradle distribution configuration.
+* `app/build.gradle` -> Android app config, SDK levels, ViewBinding, Firebase, Navigation, Lifecycle, Material, Glide, and test dependencies.
+* `app/src/main/AndroidManifest.xml` -> declares Internet permission, app class, and activity entry points.
+* `app/src/main/res/navigation/nav_graph.xml` -> navigation graph for home, phases, classroom, education, my learning, advanced, profile, install, invest, and affiliate fragments.
+* `app/src/main/res/menu/bottom_nav_menu.xml` -> bottom navigation tab definitions.
+* `app/src/main/res/values/strings.xml` -> app labels, risk disclaimer, gating strings, booking hints, placeholder Google web client ID.
+* `app/src/main/res/values/colors.xml` -> brand and UI color tokens.
+* `app/src/main/res/values/themes.xml` and `values-night/themes.xml` -> Material 3 DayNight theme definitions.
+* `app/src/main/res/layout/activity_main.xml` -> main NavHost plus bottom navigation shell.
+* `app/src/main/res/layout/activity_login.xml` -> Google sign-in UI only.
+* `app/src/main/res/layout/activity_register.xml` -> email/password registration UI only.
+* `app/src/main/res/layout/activity_forgot_password.xml` -> password reset UI only.
+* `app/src/main/res/layout/fragment_home.xml` -> static home/progress/advanced tools screen layout.
+* `app/src/main/res/layout/fragment_education.xml` -> static courses list shell.
+* `app/src/main/res/layout/fragment_install.xml` -> static Windows bot installation guide.
+* `app/src/main/res/layout/fragment_invest.xml` -> static investment plans RecyclerView shell.
+* `app/src/main/res/layout/fragment_affiliate.xml` -> static affiliate dashboard layout.
+* `app/src/main/res/layout/fragment_profile.xml` -> static profile/logout layout.
+* `app/src/main/res/layout/item_course.xml` -> static course card item layout.
+* `app/src/main/res/layout/item_investment_plan.xml` -> static investment plan card item layout.
+* `app/src/main/java/com/shaplachottor/app/models/AdvancedFeatures.kt` -> feature unlock flags.
+* `app/src/main/java/com/shaplachottor/app/models/Booking.kt` -> booking request model and booking status constants.
+* `app/src/main/java/com/shaplachottor/app/models/Lesson.kt` -> lesson model.
+* `app/src/main/java/com/shaplachottor/app/models/Phase.kt` -> learning phase model and seat availability helpers.
+* `app/src/main/java/com/shaplachottor/app/repositories/PhaseRepository.kt` -> phase, lesson, progress, booking, approval, expiration, and access-control business logic.
+* `app/src/main/java/com/shaplachottor/app/viewmodels/PhaseViewModel.kt` -> LiveData state for phase listing/filtering and booking result.
+* `app/src/main/java/com/shaplachottor/app/viewmodels/ClassroomViewModel.kt` -> LiveData state for classroom access, phase, lessons, and user progress.
+* `app/src/main/java/com/shaplachottor/app/viewmodels/ClassroomViewModelFactory.kt` -> factory for injecting `PhaseRepository` into `ClassroomViewModel`.
+* `app/src/main/java/com/shaplachottor/app/viewmodels/MyLearningViewModel.kt` -> Firestore-backed current/completed learning state.
+* `app/src/main/java/com/shaplachottor/app/fragments/PhasesFragment.kt` -> phase tabs, phase list rendering, booking request dialog flow, and classroom navigation.
+* `app/src/main/java/com/shaplachottor/app/fragments/ClassroomFragment.kt` -> classroom rendering, access-denied handling, progress display, and lesson completion.
+* `app/src/main/java/com/shaplachottor/app/adapters/PhaseAdapter.kt` -> RecyclerView item binding for phases, seat counts, lock state, and booking state.
+* `app/src/main/java/com/shaplachottor/app/adapters/LessonAdapter.kt` -> RecyclerView item binding for lessons and completion checkbox.
+* `firestore.rules` -> Firestore access rules for users, phases, bookings, investments, courses, enrollments, affiliate stats, and settings.
+* `docs/firebase_setup.md` -> Firebase setup and default user state instructions.
+* `docs/firestore_database_structure.md` -> expected Firestore collections and fields.
+* `docs/web3_integration_template.md` -> non-implemented Web3 flow template.
+* `README.md` -> high-level product intent, setup, six-phase catalog, and feature-gating documentation.
 
 ## 6. Current System Behavior
 
-1. App launch starts at `SplashActivity`.
-2. If no Firebase user is signed in, the app opens `LoginActivity`.
-3. If a Firebase user exists, startup attempts to:
-   - sync the Firestore user document
-   - seed the six canonical phases if `phases` is empty
-   - open `MainActivity`
-4. `LoginActivity` supports Google sign-in. On success it signs into Firebase, syncs the Firestore user, seeds phases, and navigates to `MainActivity` if profile sync succeeds.
-5. `MainActivity` hosts bottom navigation with `Home`, `Courses` (phases), `My Learning`, `Advanced`, and `Profile`.
-6. `Home` shows welcome text, overall progress, latest unlocked phase, and three advanced buttons that only change enabled state.
-7. `Courses` opens `PhasesFragment`, defaulting to the `Beginner` tab.
-8. Locked phases show a booking CTA. Tapping it opens a dialog that requires:
-   - phone number
-   - WhatsApp number
-9. Submitting the form writes a `pending` booking request with a 15-minute expiry window.
-10. A deployed Cloud Function can email the master admin when that booking becomes a fresh `pending` request.
-11. The app does not deduct a seat or unlock the phase at request time.
-12. If the booking document later becomes `approved`, the user's phase becomes unlocked and the classroom becomes accessible.
-13. `ClassroomFragment` blocks access if the phase is not in `users/{uid}.unlockedPhases`.
-14. Inside the classroom, three hardcoded lessons are shown. Checkbox toggles update phase and overall progress.
-15. `My Learning` shows the latest unlocked phase and completed phases if the user has any unlocked phases.
-16. `Advanced` unlocks sub-screens at:
-   - `30%` for install/bot setup
-   - `60%` for investment
-   - `100%` for affiliate
-17. `Profile` currently only supports logout.
-18. Register and forgot-password screens exist but are not part of the primary Google-first journey.
+* Verified runtime behavior: none. The app cannot currently be built/launched from this repo state.
+* Build verification:
+  * `.\gradlew.bat :app:assembleDebug` fails immediately with `Error: -classpath requires class path specification` because `gradlew.bat` currently sets `CLASSPATH=` instead of the wrapper jar path.
+  * `java -jar gradle\wrapper\gradle-wrapper.jar :app:assembleDebug` reaches Gradle but fails at `:app:processDebugGoogleServices` because `app/google-services.json` is missing.
+* Intended flow from manifest/navigation/layouts/code:
+  * Launcher activity should be `SplashActivity`.
+  * Auth should route through login/register/forgot password screens.
+  * Main app should show bottom navigation with Home, Courses/Phases, My Learning, Advanced, and Profile.
+  * Phases screen should show Beginner/Intermediate/Advanced tabs and phase cards.
+  * Locked phases should show booking CTA; booking requires phone and WhatsApp numbers.
+  * Pending booking should show approval expiry time.
+  * Approved/unlocked phases should open classroom.
+  * Classroom should show hardcoded lessons and update phase progress when lesson checkboxes change.
+  * Progress should unlock advanced feature flags at 30%, 60%, and 100%.
 
 ## 7. Known Issues / Weaknesses
 
-- There is no shipped admin UI for approving or rejecting bookings.
-- Booking approval is not transactional. Booking status, phase seats, and unlocked user state are written separately.
-- Pending booking requests do not reserve seats. Multiple users can remain pending for the same remaining seat count.
-- Booking expiry is lazy, not truly automatic. Expiration happens when code reads or rewrites bookings, not from a scheduled server-side expiry job.
-- `PhaseRepository.getLessonsForPhase()` returns the same three hardcoded lessons for every phase.
-- Lesson completion is not stored per lesson, so repeated toggling can distort progress.
-- Architecture is inconsistent. Several ViewModels bypass repositories and use Firebase SDKs directly.
-- `HomeViewModel`, `MyLearningViewModel`, and `AdvancedViewModel` add snapshot listeners but do not keep/remove registrations in `onCleared()`.
-- `SplashActivity` ignores bootstrap failures and proceeds to `MainActivity` as long as a Firebase user exists.
-- `LoginActivity` can leave a user signed in even when Firestore profile sync fails.
-- `RegisterActivity` and `ForgotPasswordActivity` have minimal validation and are not integrated into the primary UX.
-- Home's advanced buttons do not navigate anywhere.
-- Profile fields are static placeholders and are not bound to the actual current user.
-- `EducationFragment`, `InvestFragment`, `AffiliateFragment`, and `InstallFragment` are mostly placeholder or static content.
-- The manual approval backend requires deployed Functions plus SMTP configuration; the repo alone does not make notifications work.
-- There are no automated tests for the Cloud Function.
-- The POSIX `gradlew` wrapper is malformed (`CLASSPATH="\\\"\\\""`), while Windows `gradlew.bat` is the working wrapper.
-- The repo still shows scope drift:
-  - project name: `TradingAI`
-  - app brand: `ShaplaChottor`
-  - prompt artifacts describe a broader Web3/investment/admin product than the implemented app delivers
+* Project is not buildable in current state.
+* `gradlew.bat` is modified/broken: `CLASSPATH` is empty.
+* `app/google-services.json` is missing, so Google Services processing fails.
+* Manifest references missing classes:
+  * `.TradingAIApplication`
+  * `com.shaplachottor.app.activities.SplashActivity`
+  * `MainActivity`
+  * `LoginActivity`
+  * `RegisterActivity`
+  * `ForgotPasswordActivity`
+* Navigation graph references missing fragment classes:
+  * `HomeFragment`
+  * `EducationFragment`
+  * `MyLearningFragment`
+  * `AdvancedFragment`
+  * `ProfileFragment`
+  * `InstallFragment`
+  * `InvestFragment`
+  * `AffiliateFragment`
+* Navigation graph references missing layouts:
+  * `fragment_phases`
+  * `fragment_classroom`
+  * `fragment_my_learning`
+  * `fragment_advanced`
+* Kotlin ViewBinding references missing layouts:
+  * `FragmentPhasesBinding`
+  * `DialogBookingRequestBinding`
+  * `FragmentClassroomBinding`
+  * `ItemPhaseBinding`
+  * `ItemLessonBinding`
+* Kotlin references missing source types:
+  * `AppGraph`
+  * `AppStore`
+  * `AuthSessionProvider`
+  * `PhaseCatalog`
+  * `User`
+  * `UserRepository`
+  * `BookingRequestOutcome`
+  * `BookingRequestResult`
+* `PhaseAdapter` references missing drawables:
+  * `ic_lock_open`
+  * `ic_lock_closed`
+* `README.md` references `functions/` and `docs/firebase_functions_setup.md`, but they are not present.
+* `.gitignore` ignores `*.xml` and `*.json` globally, which can hide new Android resource XML files and Firebase JSON config from git unless explicitly force-added or exceptioned.
+* Repository catches broad `Exception` and often returns false/empty fallback values, which can hide data-layer failures.
+* `ClassroomViewModel` and `MyLearningViewModel` directly use Firebase while `PhaseRepository` uses an abstract `AppStore`, creating inconsistent data-access patterns.
+* `updateLessonProgress()` ignores `lessonId`, so checking the same lesson repeatedly can incorrectly increment/decrement progress.
+* Lesson data is hardcoded and identical for every phase.
+* Booking expiration is normalized only when bookings are read through repository methods; no scheduler/backend expiration is present.
+* Admin approval logic exists only as repository methods; no admin UI, secure callable backend, or Cloud Function implementation is present.
+* Firestore rules rely on `request.auth.token.role == 'admin'`; no code in repo sets custom claims.
+* `PhaseRepository.approveBooking()` updates booking, phase seat count, and user access as separate store calls; atomicity depends on missing `AppStore` implementation and may be unsafe without a Firestore transaction.
+* Auth UI layouts exist, but auth activities and account creation/sign-in logic are missing.
+* Web3, investment, affiliate, and admin features are documented or static-layout only.
 
-## 8. Next Recommended Features (Top 5)
+## 8. Next Recommended Features (Top 3-5)
 
-### 1. Admin approval interface
+* Buildable app foundation
+  * Why it matters: no feature can be verified until wrapper, Firebase config handling, missing classes, and missing resources are resolved.
+  * Complexity: High.
 
-- Why it matters:
-  - The current manual approval workflow is incomplete without a real admin surface to review, approve, reject, and expire bookings.
-- Complexity:
-  - High
+* Firebase/auth/data layer completion
+  * Why it matters: `PhaseRepository`, `MyLearningViewModel`, bookings, progress, and phase access all depend on user/session/store abstractions that are absent.
+  * Complexity: High.
 
-### 2. Server-side automatic booking expiry
+* Complete learning phases and classroom UI
+  * Why it matters: phase booking and classroom progress are the most developed business flows in current Kotlin, but they cannot render because required layouts/resources/models are missing.
+  * Complexity: Medium.
 
-- Why it matters:
-  - The current 15-minute expiry is not truly automatic; it is only normalized when app code touches the booking again.
-- Complexity:
-  - Medium
+* Admin booking approval workflow
+  * Why it matters: user access depends on manual approval, but there is no present admin surface or backend function to approve bookings safely.
+  * Complexity: High.
 
-### 3. Transaction-safe approval flow
-
-- Why it matters:
-  - Approval currently updates booking, phase, and user state separately and can leave data inconsistent under failure or concurrency.
-- Complexity:
-  - Medium
-
-### 4. Persisted lesson completion model
-
-- Why it matters:
-  - Progress is currently easy to corrupt because lesson state is hardcoded and not stored durably.
-- Complexity:
-  - Medium
-
-### 5. Unify Firebase access behind repositories
-
-- Why it matters:
-  - Consolidating direct SDK usage behind repositories would improve testability, listener lifecycle management, and consistency.
-- Complexity:
-  - High
+* Replace hardcoded lessons with Firestore-backed course/lesson data
+  * Why it matters: current classroom progress is based on three static lessons for every phase and does not track individual lesson completion.
+  * Complexity: Medium.
 
 ## 9. Development State Summary
 
-- Estimated completion:
-  - About `65%` of an MVP for the sign-in, phase access, booking-request, and progress-tracking flow.
-  - Much lower for the broader investment, affiliate, education, and admin product suggested by the prompt artifacts.
-- Current stage:
-  - Mid-stage prototype.
-- Verification state in this analysis session:
-  - `.\gradlew.bat testDebugUnitTest` passed.
-  - `functions/npm run verify` passed and loaded the Functions module successfully.
-  - Instrumentation tests exist, but they were not executed in this analysis session.
-- Practical summary:
-  - The Android learning backbone is real and usable.
-  - Manual booking requests, approval semantics, and admin email notification code now exist.
-  - The product still lacks a complete admin approval experience, durable lesson state, and finished advanced/product-facing features.
+* Estimated completion: 20-30% of the documented product vision.
+* Stage: early/pre-alpha.
+* Buildable: no.
+* Most complete area: phase/booking/classroom business logic skeleton.
+* Least complete areas: app shell/auth implementation, data layer, missing resources/classes, admin approval flow, Web3/investment/affiliate implementations.
+* Production readiness: not near production. Primary next milestone should be a clean debug build with Firebase config supplied locally and a working login-to-phases-to-classroom happy path.

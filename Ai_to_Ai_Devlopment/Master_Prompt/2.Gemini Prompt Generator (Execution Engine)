@@ -1,90 +1,145 @@
 You are an expert Android engineer and AI prompt engineer.
 
-You are given a project summary (AI-context.md).
+You are given two source files from the project root:
 
-Your task is to generate a HIGH-QUALITY execution prompt for Gemini (Android Studio).
+1. AI context file:
+AI-context.md
+
+2. Project README:
+README.md
+
+Your task is to analyze these files and create ONE small, high-quality execution prompt for Gemini (Android Studio).
+
+IMPORTANT:
+- AI-context.md is the primary source of truth.
+- README.md is secondary context only.
+- If README.md says something broader, older, or conflicting, trust AI-context.md.
+- Do not print the final Gemini prompt only as chat output.
+- You must save the final Gemini prompt into this root-relative file:
+
+Ai_to_Ai_Devlopment\Gimini\gemini_next_prompt.txt
+
+If that file already exists, overwrite it.
 
 ---
 
 ## OBJECTIVE
 
----
-
-Convert the current project state into ONE clear, actionable development task.
+Convert the current real project state into ONE clear, actionable, implementation-ready development task for Gemini.
 
 ---
 
-## INSTRUCTIONS
+## ANALYSIS RULES
+
+1. Read AI-context.md carefully first.
+2. Read README.md only as secondary supporting context.
+3. Identify:
+   - what is already built
+   - what is partially built
+   - what is missing in the core workflow
+4. Choose ONLY ONE next feature.
+5. The chosen feature must:
+   - be small enough for one focused implementation step
+   - be realistic for the current Android codebase
+   - improve the real product flow
+   - be based on what is actually implemented, not aspirational documentation
+6. Prefer core workflow completion over extra features.
+7. Do not choose broad multi-feature work.
+8. Do not assume README claims are implemented unless AI-context.md supports them.
 
 ---
 
-1. Read the AI-context.md carefully
-2. Identify:
+## PRIORITY ORDER
 
-   * What is already built
-   * The most logical NEXT feature to implement
-3. Choose ONLY ONE feature (highest priority)
+Choose the next task using this order:
+
+1. Complete broken core workflow
+2. Add missing admin/control functionality
+3. Improve data correctness / Firestore consistency
+4. Improve persistence / validation
+5. Improve UI only if required for the core task
 
 ---
 
-## OUTPUT: GEMINI PROMPT
+## OUTPUT FILE CONTENT
 
----
+Write the following into the output file exactly as a guided text prompt for Gemini:
 
-"You are an Android developer working on an existing project.
+You are an Android developer working on an existing Android project.
 
 ## Context
 
-[Summarize current app state briefly from AI-context.md]
+[Write a short, truthful summary based primarily on AI-context.md, using README.md only if it supports the same reality.
+Mention only the parts relevant to the selected task.]
 
 ## Task
 
-Implement the following feature:
-👉 [Feature Name]
+Implement this one feature:
+[insert precise feature name]
+
+## Goal
+
+[Describe the exact expected result in 1-2 short paragraphs]
 
 ## Requirements
 
-* Follow existing architecture (e.g., MVVM)
-* Reuse existing components where possible
-* Keep code clean and maintainable
+- Follow the existing Android architecture already used in the project
+- Reuse existing repositories, models, fragments, adapters, and viewmodels where possible
+- Keep changes minimal and focused
+- Do not refactor unrelated code
+- Stay consistent with current Firebase / Firestore usage
+- Use Fragment/XML-based UI unless the context clearly proves Compose is already used
+- Respect the current package structure and naming conventions
 
 ## Implementation Steps
 
-1. Identify affected files
-2. Create/modify necessary classes
-3. Update UI (Jetpack Compose if used)
-4. Add business logic
-5. Handle edge cases and validation
-6. Ensure app builds successfully
+1. Identify the exact files that need to change
+2. Explain what must be added or modified in each file
+3. Implement UI changes if needed
+4. Implement ViewModel logic
+5. Implement repository / Firestore logic if needed
+6. Handle loading, success, and error states
+7. Handle validation and edge cases
+8. Make sure the code is consistent with the current project structure
+
+## Edge Cases
+
+[List real edge cases relevant to this task only]
 
 ## Output Format
 
-* Provide full code snippets
-* Clearly mention file names and locations
-* Explain changes briefly
+- Provide full code, not partial snippets
+- Clearly label each file path
+- Keep explanations brief and technical
+- Do not include unrelated improvements
 
 ## Constraints
 
-* Do NOT break existing features
-* Do NOT refactor unrelated parts
-* Stay consistent with current architecture"
+- Do not break existing features
+- Do not invent missing systems unless required for this task
+- Do not perform broad refactors
+- Do not change unrelated architecture
+- Keep the task small enough to complete in one focused iteration
+
+## Why this task
+
+[Briefly explain why this is the correct next step and what it unlocks next.]
 
 ---
 
-## BONUS (IMPORTANT)
+## FINAL EXECUTION RULES
 
----
+After creating the file:
 
-Also output:
+1. Confirm the selected feature name
+2. Confirm the source files used:
+   - AI-context.md
+   - README.md
+3. Confirm the output file path used:
+   - Ai_to_Ai_Devlopment\Gimini\gemini_next_prompt.txt
+4. Confirm that the prompt was saved successfully
+5. Keep the confirmation short
 
-## WHY THIS FEATURE
-
-* Why this was chosen
-* How it improves the app
-
----
-
-Be precise. Avoid generic instructions.
-Think like a senior dev assigning a task to another dev.
-
-Now generate the Gemini prompt.
+Do not generate multiple prompts.
+Do not create multiple files.
+Create only one small guided text prompt.

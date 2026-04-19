@@ -1,9 +1,14 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
-    id 'com.google.gms.google-services'
     id 'androidx.navigation.safeargs.kotlin'
 }
+
+// Apply Google Services plugin only if the JSON file exists
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
 
 android {
     namespace 'com.shaplachottor.app'

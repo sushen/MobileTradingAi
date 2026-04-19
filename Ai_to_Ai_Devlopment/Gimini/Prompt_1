@@ -1,0 +1,171 @@
+You are an Android developer working on an existing Kotlin Android project.
+
+## Context
+
+The project is `TradingAI`, branded as `ShaplaChottor`, package `com.shaplachottor.app`.
+
+It is intended to be a native Android app using:
+- Kotlin
+- XML layouts with ViewBinding
+- Material Components / Material 3
+- Navigation Component with Safe Args
+- MVVM + Repository pattern
+- Firebase Auth, Firestore, Storage, Analytics
+
+Current state:
+- The most developed code is the learning phase, booking, classroom, and progress skeleton.
+- Existing Kotlin includes `PhaseRepository`, `PhaseViewModel`, `ClassroomViewModel`, `PhasesFragment`, `ClassroomFragment`, `PhaseAdapter`, `LessonAdapter`, and models for `Phase`, `Lesson`, `Booking`, and `AdvancedFeatures`.
+- The app is currently not buildable.
+- Missing classes include `TradingAIApplication`, activities, several fragments, `User`, `UserRepository`, `AppGraph`, `AppStore`, `AuthSessionProvider`, `PhaseCatalog`, `BookingRequestOutcome`, and `BookingRequestResult`.
+- Missing XML/resources include `fragment_phases.xml`, `fragment_classroom.xml`, `dialog_booking_request.xml`, `item_phase.xml`, `item_lesson.xml`, `fragment_my_learning.xml`, `fragment_advanced.xml`, and lock icons.
+- `gradlew.bat` is broken because `CLASSPATH` is empty.
+- `app/google-services.json` is missing, so debug builds fail at `processDebugGoogleServices`.
+
+## Task
+
+Implement the following feature:
+Buildable App Foundation
+
+The goal is to make the existing project compile successfully while preserving the current architecture and existing feature direction. Do not implement Web3, investment, affiliate, or admin dashboards in this task.
+
+## Requirements
+
+- Follow the existing MVVM + Repository style.
+- Use Kotlin and XML ViewBinding, not Jetpack Compose.
+- Reuse existing models, repositories, ViewModels, fragments, layouts, and navigation where possible.
+- Add only the missing foundation needed for a clean debug build.
+- Do not remove existing phase, booking, classroom, or progress logic.
+- Do not add real Firebase credentials.
+- Make the project buildable without requiring a committed real `google-services.json`.
+- Keep placeholder screens simple but functional.
+- Avoid broad refactors unrelated to buildability.
+
+## Implementation Steps
+
+1. Fix Gradle wrapper/build blockers.
+   - Restore `gradlew.bat` so `CLASSPATH` points to `%APP_HOME%\gradle\wrapper\gradle-wrapper.jar`.
+   - Make the Google Services plugin conditional or otherwise ensure debug builds do not fail when `app/google-services.json` is absent.
+   - Do not commit real Firebase credentials.
+
+2. Add missing application/activity foundation.
+   - Create `TradingAIApplication`.
+   - Create `SplashActivity`.
+   - Create `MainActivity`.
+   - Create `LoginActivity`.
+   - Create `RegisterActivity`.
+   - Create `ForgotPasswordActivity`.
+   - Keep flows minimal: splash routes to login or main based on FirebaseAuth current user; login can use the existing Google login layout but may show a clear placeholder/error if Firebase config is absent.
+
+3. Add missing model and result types.
+   - Create `User` model compatible with existing repository/ViewModel usage.
+   - Create `BookingRequestOutcome`.
+   - Create `BookingRequestResult`.
+
+4. Add missing data abstractions required by `PhaseRepository`.
+   - Create `AuthSessionProvider`.
+   - Create `AppStore`.
+   - Create `AppGraph`.
+   - Create a Firestore-backed `AppStore` implementation.
+   - Ensure methods used by `PhaseRepository` exist:
+     - getPhaseCount
+     - setPhase
+     - getPhases
+     - getPhase
+     - getUser
+     - setUser
+     - getBooking
+     - setBooking
+    - Use coroutines and `kotlinx-coroutines-play-services` for Firebase Task awaiting.
+
+5. Add `PhaseCatalog`.
+   - Define the canonical six phases documented in README:
+     - phase1 Foundations
+     - phase2 Data Analysis
+     - phase3 Object-Oriented Programming
+     - phase4 System Design
+     - phase5 Simulation & Data Systems
+     - phase6 Production Engineering
+   - Include `phaseIds`, `allPhases`, and `findById`.
+
+6. Add `UserRepository`.
+   - Package should match current import: `com.shaplachottor.app.repository.UserRepository`.
+   - Implement `getCurrentUserOrNull()` because `PhasesFragment` already calls it.
+   - Add minimal helper methods if needed for splash/login bootstrap.
+
+7. Add missing fragments referenced by navigation.
+   - Create simple functional fragments:
+     - `HomeFragment`
+     - `EducationFragment`
+     - `MyLearningFragment`
+     - `AdvancedFragment`
+     - `ProfileFragment`
+     - `InstallFragment`
+     - `InvestFragment`
+     - `AffiliateFragment`
+   - Reuse existing layouts where they exist.
+   - For missing `fragment_my_learning.xml` and `fragment_advanced.xml`, create simple Material XML layouts.
+
+8. Add missing XML resources required by existing Kotlin.
+   - `fragment_phases.xml` with:
+     - `tabLayoutLevels`
+     - `rvPhases`
+   - `dialog_booking_request.xml` with:
+     - `inputLayoutPhoneNumber`
+     - `etPhoneNumber`
+     - `inputLayoutWhatsappNumber`
+     - `etWhatsappNumber`
+   - `fragment_classroom.xml` with:
+     - `toolbarClassroom`
+     - `tvPhaseTitleClassroom`
+     - `classroomProgressIndicator`
+     - `tvClassroomProgressPercent`
+     - `rvLessons`
+   - `item_phase.xml` with all IDs used by `PhaseAdapter`.
+   - `item_lesson.xml` with all IDs used by `LessonAdapter`.
+
+9. Add missing drawables.
+   - Add simple vector drawables:
+     - `ic_lock_open.xml`
+     - `ic_lock_closed.xml`
+
+10. Validate and fix compile errors.
+   - Run a debug build.
+   - Fix package/import/resource issues.
+   - Ensure generated Safe Args classes compile.
+   - Ensure ViewBinding classes compile.
+   - Do not suppress errors by deleting existing feature code.
+
+## Edge Cases
+
+- If Firebase is not configured, the app should still compile and should not crash immediately on startup.
+- If the current user is null, repositories should return safe defaults.
+- Firestore failures should not crash the UI; return empty/default values consistently.
+- Do not create fake production credentials.
+- Do not implement incomplete fake Web3 or investment logic.
+
+## Output Format
+
+Provide:
+- Full code snippets for every new or modified Kotlin/XML/Gradle file.
+- File paths for each change.
+- A short explanation of why each file was needed.
+- The final build command used.
+- Any remaining setup step the developer must do locally, especially adding a real `app/google-services.json` for Firebase runtime behavior.
+
+## Constraints
+- Do not break existing `PhaseRepository`, `PhaseViewModel`, `PhasesFragment`, `ClassroomFragment`, `PhaseAdapter`, or `LessonAdapter`.
+- Do not refactor unrelated architecture.
+- Do not implement Web3, investment transactions, affiliate tracking, or admin approval UI in this task.
+- Do not remove Firebase dependencies.
+- Do not commit secrets.
+- Keep the result focused on making the app build and launch into a minimal usable shell.
+
+## WHY THIS FEATURE
+
+This feature was chosen because the project is currently not buildable, and all other work depends on restoring a clean foundation first.
+
+It improves the app by:
+- Restoring compile/build confidence.
+- Connecting the existing phase and classroom skeleton to the missing app shell.
+- Providing the missing models, resources, and data abstractions needed by current code.
+- Creating a stable base for the next feature: Firebase/auth/data flow completion or the learning phases classroom UI.
