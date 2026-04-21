@@ -1,24 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Brand Colors -->
-    <color name="primary">#2563EB</color>
-    <color name="primary_variant">#1D4ED8</color>
-    <color name="accent">#10B981</color>
-    <color name="secondary">#64748B</color>
+    <!-- Core Brand Colors from color-context.md -->
+    <color name="shapla_green">#2E7D32</color>
+    <color name="shapla_green_dark">#1B5E20</color>
+    <color name="water_white">#E0E2E0</color> <!-- Darker grey for better eye relief -->
+    <color name="soft_gold">#D4AF37</color>
+    <color name="deep_teal">#0F4C5C</color>
 
-    <!-- UI Colors -->
-    <color name="background">#F8FAFC</color>
-    <color name="surface">#FFFFFF</color>
-    <color name="error">#EF4444</color>
-    <color name="outline_variant">#E2E8F0</color>
+    <!-- Neutral Colors -->
+    <color name="text_dark">#121212</color>
+    <color name="text_medium">#4B5563</color>
+    <color name="border_light">#E5E7EB</color>
 
-    <!-- On-Colors -->
+    <!-- Functional Semantic Mappings (Material 3) -->
+    <color name="primary">@color/shapla_green</color>
+    <color name="primary_container">#E8F5E9</color>
     <color name="on_primary">#FFFFFF</color>
-    <color name="on_background">#0F172A</color>
-    <color name="on_surface">#0F172A</color>
-    <color name="text_secondary">#64748B</color>
 
-    <!-- Standard -->
+    <color name="secondary">@color/deep_teal</color>
+    <color name="secondary_container">#E0F2F1</color>
+    <color name="on_secondary">#FFFFFF</color>
+
+    <color name="tertiary">@color/soft_gold</color>
+    <color name="on_tertiary">#FFFFFF</color>
+
+    <color name="background">@color/water_white</color>
+    <color name="on_background">@color/text_dark</color>
+
+    <color name="surface">@color/water_white</color>
+    <color name="on_surface">@color/text_dark</color>
+    <color name="surface_variant">@color/border_light</color>
+    <color name="on_surface_variant">@color/text_medium</color>
+
+    <color name="error">#B00020</color>
+    <color name="on_error">#FFFFFF</color>
+
+    <!-- Legacy / Compatibility Mappings (Fixing build errors) -->
+    <color name="accent">@color/soft_gold</color>
+    <color name="text_secondary">@color/text_medium</color>
+    <color name="primary_variant">@color/shapla_green_dark</color>
+    <color name="outline_variant">@color/border_light</color>
+
+    <!-- Standard Colors -->
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
 </resources>

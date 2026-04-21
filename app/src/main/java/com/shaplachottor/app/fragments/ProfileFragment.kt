@@ -8,6 +8,8 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.shaplachottor.app.R
 import com.shaplachottor.app.activities.LoginActivity
 import com.shaplachottor.app.data.AppGraph
@@ -36,11 +38,22 @@ class ProfileFragment : Fragment() {
         loadUserProfile()
         
         binding.btnLogout.setOnClickListener {
+            // 1. Sign out from Firebase
             authSessionProvider.signOut()
-            val intent = Intent(requireContext(), LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            startActivity(intent)
-            requireActivity().finish()
+            
+            // 2. Sign out from Google to prevent auto-login
+            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build()
+            val googleSignInClient = GoogleSignIn.getClient(requireContext(), gso)
+            googleSignInClient.signOut().addOnCompleteListener {
+                // 3. Navigate back to LoginActivity
+                val intent = Intent(requireContext(), LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                requireActivity().finish()
+            }
         }
 
         if (authSessionProvider.currentUser()?.email == "sushen.biswas.aga@gmail.com") {

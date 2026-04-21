@@ -14,4 +14,5 @@ interface AppStore {
     suspend fun getBooking(bookingId: String): Booking?
     suspend fun setBooking(booking: Booking)
     suspend fun getPendingBookings(): List<Booking>
+    suspend fun getAllBookings(): List<Booking>
 }

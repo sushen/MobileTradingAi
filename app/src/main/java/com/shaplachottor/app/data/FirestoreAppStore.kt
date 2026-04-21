@@ -76,4 +76,13 @@ class FirestoreAppStore : AppStore {
             emptyList()
         }
     }
+
+    override suspend fun getAllBookings(): List<Booking> {
+        return try {
+            val snapshot = db.collection("bookings").get().await()
+            snapshot.toObjects(Booking::class.java)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 }

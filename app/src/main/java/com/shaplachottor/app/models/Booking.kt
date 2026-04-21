@@ -14,6 +14,7 @@ data class Booking(
         const val STATUS_PENDING = "pending"
         const val STATUS_APPROVED = "approved"
         const val STATUS_REJECTED = "rejected"
+        const val STATUS_CANCELLED = "cancelled"
         const val STATUS_EXPIRED = "expired"
         const val STATUS_BOOKED_LEGACY = "booked"
         const val EXPIRATION_WINDOW_MILLIS = 15 * 60 * 1000L

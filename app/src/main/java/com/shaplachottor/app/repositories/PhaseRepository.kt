@@ -19,8 +19,11 @@ open class PhaseRepository(
 
     suspend fun ensurePhasesSeeded(): Boolean {
         return try {
-            if (appStore.getPhaseCount() == 0) {
-                PhaseCatalog.allPhases.forEach { phase ->
+            val existingPhases = appStore.getPhases()
+            val existingIds = existingPhases.map { it.phaseId }.toSet()
+            
+            PhaseCatalog.allPhases.forEach { phase ->
+                if (!existingIds.contains(phase.phaseId)) {
                     appStore.setPhase(phase)
                 }
             }
@@ -54,11 +57,39 @@ open class PhaseRepository(
 
     suspend fun getLessonsForPhase(phaseId: String): List<Lesson> {
         return try {
-            listOf(
-                Lesson("L1", "Introduction to AI Trading", "Basics of how AI works in markets", false, "video"),
-                Lesson("L2", "Setting up Environment", "Installing Python and libraries", false, "text"),
-                Lesson("L3", "First Strategy", "Building a simple moving average bot", false, "quiz")
-            )
+            when (phaseId) {
+                PhaseCatalog.PHASE1 -> listOf(
+                    Lesson("L1", "Introduction to AI Coding", "Basics of how AI works in software development", false, "video"),
+                    Lesson("L2", "Setting up Environment", "Installing required IDEs and libraries", false, "text"),
+                    Lesson("L3", "First Program", "Building a simple AI-assisted application", false, "quiz")
+                )
+                PhaseCatalog.PHASE2 -> listOf(
+                    Lesson("L1", "Data Analysis Fundamentals", "Introduction to data analysis for AI", false, "video"),
+                    Lesson("L2", "Working with DataFrames", "Pandas and data manipulation techniques", false, "text"),
+                    Lesson("L3", "Visualizing Trends", "Creating meaningful charts from raw data", false, "quiz")
+                )
+                PhaseCatalog.PHASE3 -> listOf(
+                    Lesson("L1", "OOP Principles", "Understanding classes, objects, and inheritance", false, "video"),
+                    Lesson("L2", "Design Patterns", "Common architectural patterns in software", false, "text"),
+                    Lesson("L3", "Refactoring Code", "Improving system structure for reusability", false, "quiz")
+                )
+                PhaseCatalog.PHASE4 -> listOf(
+                    Lesson("L1", "Scalability Basics", "Fundamentals of high-traffic system design", false, "video"),
+                    Lesson("L2", "Backend Architecture", "Building robust server-side flows", false, "text"),
+                    Lesson("L3", "Database Optimization", "Designing for performance and reliability", false, "quiz")
+                )
+                PhaseCatalog.PHASE5 -> listOf(
+                    Lesson("L1", "Pipeline Simulation", "Building data-driven simulation environments", false, "video"),
+                    Lesson("L2", "Decision Systems", "Logic for model-backed decision making", false, "text"),
+                    Lesson("L3", "Data Consistency", "Managing state in complex data systems", false, "quiz")
+                )
+                PhaseCatalog.PHASE6 -> listOf(
+                    Lesson("L1", "CI/CD for AI", "Automated pipelines for production workflows", false, "video"),
+                    Lesson("L2", "Monitoring & Alerts", "Observability for deployed AI systems", false, "text"),
+                    Lesson("L3", "Reliability Engineering", "Maintenance and scaling in production", false, "quiz")
+                )
+                else -> emptyList()
+            }
         } catch (e: Exception) {
             emptyList()
         }

@@ -48,24 +48,10 @@ class LoginActivity : AppCompatActivity() {
 
         setupGoogleSignIn()
 
-        binding.btnLogin.setOnClickListener {
-            // Placeholder login logic
-            startActivity(Intent(this, MainActivity::class.java))
-            finish()
-        }
-
         binding.btnGoogleLogin.setOnClickListener {
             showLoading(true)
             val signInIntent = googleSignInClient.signInIntent
             googleSignInLauncher.launch(signInIntent)
-        }
-
-        binding.tvRegister.setOnClickListener {
-            startActivity(Intent(this, RegisterActivity::class.java))
-        }
-
-        binding.tvForgotPassword.setOnClickListener {
-            startActivity(Intent(this, ForgotPasswordActivity::class.java))
         }
     }
 
@@ -106,6 +92,5 @@ class LoginActivity : AppCompatActivity() {
     private fun showLoading(isLoading: Boolean) {
         binding.loadingProgress.visibility = if (isLoading) View.VISIBLE else View.GONE
         binding.btnGoogleLogin.isEnabled = !isLoading
-        binding.btnLogin.isEnabled = !isLoading
     }
 }

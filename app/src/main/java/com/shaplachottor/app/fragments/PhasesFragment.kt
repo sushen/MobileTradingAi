@@ -60,7 +60,8 @@ class PhasesFragment : Fragment() {
     }
 
     private fun setupTabs() {
-        binding.tabLayoutLevels.addTab(binding.tabLayoutLevels.newTab().setText("Beginner"))
+        val beginnerTab = binding.tabLayoutLevels.newTab().setText("Beginner")
+        binding.tabLayoutLevels.addTab(beginnerTab)
         binding.tabLayoutLevels.addTab(binding.tabLayoutLevels.newTab().setText("Intermediate"))
         binding.tabLayoutLevels.addTab(binding.tabLayoutLevels.newTab().setText("Advanced"))
 
@@ -71,6 +72,9 @@ class PhasesFragment : Fragment() {
             override fun onTabUnselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
             override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
         })
+
+        // Select the first tab explicitly to trigger initial filter
+        beginnerTab.select()
     }
 
     private fun setupViewModel() {
@@ -95,11 +99,13 @@ class PhasesFragment : Fragment() {
         viewModel.phases.observe(viewLifecycleOwner) { phases ->
             visiblePhases = phases
             renderPhases()
+            updateProgressSummary()
         }
 
         viewModel.bookingStates.observe(viewLifecycleOwner) { bookingStates ->
             currentBookingStates = bookingStates
             renderPhases()
+            updateProgressSummary()
         }
 
         viewModel.bookingResult.observe(viewLifecycleOwner) { result ->
@@ -108,7 +114,7 @@ class PhasesFragment : Fragment() {
                     MaterialAlertDialogBuilder(requireContext())
                         .setTitle("Request Sent")
                         .setMessage(
-                            "Your booking request is pending manual approval. The admin will contact you on WhatsApp. If it is not approved within 15 minutes, it will expire automatically."
+                            "Your booking request is pending manual approval. Someone from our team will call you on WhatsApp to confirm the booking. If it is not approved within 15 minutes, it will expire automatically."
                         )
                         .setPositiveButton("OK") { _, _ ->
                             fetchUserAndPhases()
@@ -146,6 +152,19 @@ class PhasesFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private fun updateProgressSummary() {
+        val allPhases = viewModel.phases.value ?: emptyList()
+        val unlockedCount = currentUser?.unlockedPhases?.size ?: 0
+        
+        binding.tvCurrentTrack.text = "Current Track: ${viewModel.selectedLevel}"
+        binding.tvOverallProgress.text = "Progress: $unlockedCount / ${allPhases.size}"
+        
+        val nextPhase = allPhases.sortedBy { it.order }.firstOrNull { 
+            currentUser?.unlockedPhases?.contains(it.phaseId) != true 
+        }
+        binding.tvNextPhase.text = "Next Phase: ${nextPhase?.title ?: "Completed"}"
     }
 
     private fun renderPhases() {
@@ -236,7 +255,7 @@ class PhasesFragment : Fragment() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Approval Pending")
             .setMessage(
-                "Your request is waiting for manual approval until $formattedExpiryTime. The admin will contact you on WhatsApp before unlocking this classroom."
+                "Your request is waiting for manual approval until $formattedExpiryTime. Someone from our team will call you on WhatsApp to confirm your booking before unlocking this classroom."
             )
             .setPositiveButton("OK", null)
             .show()

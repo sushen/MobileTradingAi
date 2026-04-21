@@ -10,11 +10,11 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.tabs.TabLayout
 import com.shaplachottor.app.data.AppGraph
 import com.shaplachottor.app.databinding.FragmentAdminPanelBinding
 import com.shaplachottor.app.databinding.ItemBookingRequestBinding
 import com.shaplachottor.app.models.Booking
-import com.shaplachottor.app.models.User
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -24,6 +24,7 @@ class AdminPanelFragment : Fragment() {
     
     private val appStore = AppGraph.appStore()
     private val authProvider = AppGraph.authSessionProvider()
+    private var currentTab = 0 // 0: Pending, 1: All
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -36,7 +37,6 @@ class AdminPanelFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // Security check
         val currentUserEmail = authProvider.currentUser()?.email
         if (currentUserEmail != "sushen.biswas.aga@gmail.com") {
             Toast.makeText(requireContext(), "Access Denied", Toast.LENGTH_SHORT).show()
@@ -45,12 +45,27 @@ class AdminPanelFragment : Fragment() {
         }
 
         binding.rvRequests.layoutManager = LinearLayoutManager(requireContext())
+        
+        binding.tabLayoutAdmin.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                currentTab = tab?.position ?: 0
+                loadRequests()
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
+
         loadRequests()
     }
 
     private fun loadRequests() {
         viewLifecycleOwner.lifecycleScope.launch {
-            val requests = appStore.getPendingBookings()
+            val requests = if (currentTab == 0) {
+                appStore.getPendingBookings()
+            } else {
+                appStore.getAllBookings().sortedByDescending { it.createdAt }
+            }
+
             if (requests.isEmpty()) {
                 binding.tvEmptyState.visibility = View.VISIBLE
                 binding.rvRequests.visibility = View.GONE
@@ -59,8 +74,9 @@ class AdminPanelFragment : Fragment() {
                 binding.rvRequests.visibility = View.VISIBLE
                 binding.rvRequests.adapter = BookingRequestAdapter(
                     requests = requests,
-                    onApprove = { booking -> approveBooking(booking) },
-                    onReject = { booking -> rejectBooking(booking) }
+                    onApprove = { approveBooking(it) },
+                    onReject = { rejectBooking(it) },
+                    onCancel = { cancelBooking(it) }
                 )
             }
         }
@@ -69,25 +85,22 @@ class AdminPanelFragment : Fragment() {
     private fun approveBooking(booking: Booking) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // 1. Update Booking status
                 val updatedBooking = booking.copy(status = Booking.STATUS_APPROVED)
                 appStore.setBooking(updatedBooking)
 
-                // 2. Unlock Phase for User
                 val user = appStore.getUser(booking.userId)
                 if (user != null) {
                     val updatedUnlockedPhases = user.unlockedPhases.toMutableList()
                     if (!updatedUnlockedPhases.contains(booking.phaseId)) {
                         updatedUnlockedPhases.add(booking.phaseId)
                     }
-                    val updatedUser = user.copy(unlockedPhases = updatedUnlockedPhases)
-                    appStore.setUser(updatedUser)
+                    appStore.setUser(user.copy(unlockedPhases = updatedUnlockedPhases))
                 }
 
                 Toast.makeText(requireContext(), "Approved successfully", Toast.LENGTH_SHORT).show()
                 loadRequests()
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Failed to approve: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -95,12 +108,33 @@ class AdminPanelFragment : Fragment() {
     private fun rejectBooking(booking: Booking) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val updatedBooking = booking.copy(status = Booking.STATUS_REJECTED)
-                appStore.setBooking(updatedBooking)
+                appStore.setBooking(booking.copy(status = Booking.STATUS_REJECTED))
                 Toast.makeText(requireContext(), "Rejected successfully", Toast.LENGTH_SHORT).show()
                 loadRequests()
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Failed to reject: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun cancelBooking(booking: Booking) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                // 1. Mark booking as cancelled
+                appStore.setBooking(booking.copy(status = Booking.STATUS_CANCELLED))
+
+                // 2. Remove phase from user's unlocked list
+                val user = appStore.getUser(booking.userId)
+                if (user != null) {
+                    val updatedUnlockedPhases = user.unlockedPhases.toMutableList()
+                    updatedUnlockedPhases.remove(booking.phaseId)
+                    appStore.setUser(user.copy(unlockedPhases = updatedUnlockedPhases))
+                }
+
+                Toast.makeText(requireContext(), "Seat cancelled successfully", Toast.LENGTH_SHORT).show()
+                loadRequests()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -113,7 +147,8 @@ class AdminPanelFragment : Fragment() {
     inner class BookingRequestAdapter(
         private val requests: List<Booking>,
         private val onApprove: (Booking) -> Unit,
-        private val onReject: (Booking) -> Unit
+        private val onReject: (Booking) -> Unit,
+        private val onCancel: (Booking) -> Unit
     ) : RecyclerView.Adapter<BookingRequestAdapter.ViewHolder>() {
 
         inner class ViewHolder(val binding: ItemBookingRequestBinding) : RecyclerView.ViewHolder(binding.root)
@@ -128,14 +163,32 @@ class AdminPanelFragment : Fragment() {
             val timeFormatter = DateFormat.getTimeFormat(requireContext())
             
             holder.binding.apply {
-                // We don't have user email in Booking, so we might need to fetch it or just show UID
-                tvUserEmail.text = "User ID: ${request.userId}"
-                tvPhaseId.text = "Phase: ${request.phaseId}"
+                tvUserEmail.text = "UID: ${request.userId}"
+                tvPhaseId.text = "Phase: ${request.phaseId}\nStatus: ${request.status.uppercase()}"
                 tvContactInfo.text = "P: ${request.phoneNumber} | W: ${request.whatsappNumber}"
-                tvExpiresAt.text = "Expires at: ${timeFormatter.format(Date(request.expiresAt))}"
+                
+                if (request.status == Booking.STATUS_PENDING) {
+                    tvExpiresAt.visibility = View.VISIBLE
+                    tvExpiresAt.text = "Expires at: ${timeFormatter.format(Date(request.expiresAt))}"
+                    btnApprove.visibility = View.VISIBLE
+                    btnReject.visibility = View.VISIBLE
+                    btnReject.text = "Reject"
+                } else if (request.status == Booking.STATUS_APPROVED) {
+                    tvExpiresAt.visibility = View.GONE
+                    btnApprove.visibility = View.GONE
+                    btnReject.visibility = View.VISIBLE
+                    btnReject.text = "Cancel Seat"
+                } else {
+                    tvExpiresAt.visibility = View.GONE
+                    btnApprove.visibility = View.GONE
+                    btnReject.visibility = View.GONE
+                }
                 
                 btnApprove.setOnClickListener { onApprove(request) }
-                btnReject.setOnClickListener { onReject(request) }
+                btnReject.setOnClickListener { 
+                    if (request.status == Booking.STATUS_APPROVED) onCancel(request)
+                    else onReject(request)
+                }
             }
         }
 
