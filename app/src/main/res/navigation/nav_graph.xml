@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.shaplachottor.app.fragments.HomeFragment"
+        android:name="com.shaplachottor.lab.fragments.HomeFragment"
         android:label="@string/title_home"
         tools:layout="@layout/fragment_home" >
         <action
@@ -17,7 +17,7 @@
 
     <fragment
         android:id="@+id/phasesFragment"
-        android:name="com.shaplachottor.app.fragments.PhasesFragment"
+        android:name="com.shaplachottor.lab.fragments.PhasesFragment"
         android:label="Learning Phases"
         tools:layout="@layout/fragment_phases">
         <action
@@ -27,7 +27,7 @@
 
     <fragment
         android:id="@+id/classroomFragment"
-        android:name="com.shaplachottor.app.fragments.ClassroomFragment"
+        android:name="com.shaplachottor.lab.fragments.ClassroomFragment"
         android:label="Classroom"
         tools:layout="@layout/fragment_classroom">
         <argument
@@ -37,13 +37,13 @@
 
     <fragment
         android:id="@+id/educationFragment"
-        android:name="com.shaplachottor.app.fragments.EducationFragment"
+        android:name="com.shaplachottor.lab.fragments.EducationFragment"
         android:label="@string/title_courses"
         tools:layout="@layout/fragment_education" />
 
     <fragment
         android:id="@+id/myLearningFragment"
-        android:name="com.shaplachottor.app.fragments.MyLearningFragment"
+        android:name="com.shaplachottor.lab.fragments.MyLearningFragment"
         android:label="@string/title_my_learning"
         tools:layout="@layout/fragment_my_learning" >
         <action
@@ -56,13 +56,13 @@
 
     <fragment
         android:id="@+id/advancedFragment"
-        android:name="com.shaplachottor.app.fragments.AdvancedFragment"
+        android:name="com.shaplachottor.lab.fragments.AdvancedFragment"
         android:label="@string/title_advanced"
         tools:layout="@layout/fragment_advanced" />
 
     <fragment
         android:id="@+id/profileFragment"
-        android:name="com.shaplachottor.app.fragments.ProfileFragment"
+        android:name="com.shaplachottor.lab.fragments.ProfileFragment"
         android:label="@string/title_profile"
         tools:layout="@layout/fragment_profile" >
         <action
@@ -72,26 +72,26 @@
 
     <fragment
         android:id="@+id/adminPanelFragment"
-        android:name="com.shaplachottor.app.fragments.AdminPanelFragment"
+        android:name="com.shaplachottor.lab.fragments.AdminPanelFragment"
         android:label="Admin Panel"
         tools:layout="@layout/fragment_admin_panel" />
 
     <!-- Secondary fragments accessible from Advanced -->
     <fragment
         android:id="@+id/installFragment"
-        android:name="com.shaplachottor.app.fragments.InstallFragment"
+        android:name="com.shaplachottor.lab.fragments.InstallFragment"
         android:label="Install Bot"
         tools:layout="@layout/fragment_install" />
 
     <fragment
         android:id="@+id/investFragment"
-        android:name="com.shaplachottor.app.fragments.InvestFragment"
+        android:name="com.shaplachottor.lab.fragments.InvestFragment"
         android:label="Invest"
         tools:layout="@layout/fragment_invest" />
 
     <fragment
         android:id="@+id/affiliateFragment"
-        android:name="com.shaplachottor.app.fragments.AffiliateFragment"
+        android:name="com.shaplachottor.lab.fragments.AffiliateFragment"
         android:label="Affiliate"
         tools:layout="@layout/fragment_affiliate" />
 
