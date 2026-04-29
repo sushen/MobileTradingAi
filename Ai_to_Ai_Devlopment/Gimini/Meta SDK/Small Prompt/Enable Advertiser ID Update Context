@@ -1,0 +1,105 @@
+You are an expert Android engineer.
+
+Your task is to enable Advertiser ID collection for the Meta (Facebook) SDK and update the project documentation (`context.md`).
+
+---
+
+# 🎯 Objective
+
+Ensure the Facebook SDK can automatically collect Advertising ID (no manual handling required).
+
+---
+
+# ✅ Step 1: Update AndroidManifest.xml
+
+Inside the `<application>` tag, add:
+
+```xml id="adv1"
+<meta-data
+    android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled"
+    android:value="true"/>
+```
+
+---
+
+# ✅ Step 2: Verify Permission
+
+Ensure this permission exists in the manifest:
+
+```xml id="adv2"
+<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+```
+
+If missing, add it.
+
+---
+
+# ✅ Step 3: Do NOT Add Any Code
+
+* Do NOT write any Java/Kotlin code
+* Do NOT manually fetch advertising ID
+
+The SDK handles it automatically.
+
+---
+
+# ✅ Step 4: Update context.md
+
+Modify the following section:
+
+### Before:
+
+```md id="adv3"
+Advertiser ID Collection: ❌ Missing
+```
+
+### After:
+
+```md id="adv4"
+Advertiser ID Collection: ✅ Enabled (Handled automatically by SDK)
+```
+
+---
+
+# ✅ Step 5: Update Issues Section
+
+Remove:
+
+* Missing AdvertiserIDCollectionEnabled
+
+---
+
+# ✅ Step 6: Keep SHA as Remaining Task
+
+Ensure this still exists:
+
+```md id="adv5"
+SHA / Key Hash: ❌ Missing
+```
+
+---
+
+# 🎯 Final Status Update
+
+Update verdict:
+
+```md id="adv6"
+⚠️ Partially Ready (Only SHA Key Remaining)
+```
+
+---
+
+# ⚠️ Constraints
+
+* Do NOT modify other logic
+* Keep changes minimal
+* Do NOT remove existing structure of context.md
+
+---
+
+# 🎯 Expected Output
+
+* AndroidManifest.xml updated
+* Permission verified
+* context.md updated correctly
+* No build errors

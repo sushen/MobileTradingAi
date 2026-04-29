@@ -1,0 +1,59 @@
+package com.shaplachottor.lab.fragments
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
+import com.bumptech.glide.Glide
+import com.google.firebase.auth.FirebaseAuth
+import com.shaplachottor.lab.R
+import com.shaplachottor.lab.databinding.FragmentHomeBinding
+
+class HomeFragment : Fragment() {
+    private var _binding: FragmentHomeBinding? = null
+    private val binding get() = _binding!!
+    private val auth = FirebaseAuth.getInstance()
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentHomeBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
+        setupUserUI()
+
+        binding.btnExploreCourses.setOnClickListener {
+            findNavController().navigate(R.id.action_homeFragment_to_phasesFragment)
+        }
+        binding.btnResume.setOnClickListener {
+            findNavController().navigate(R.id.action_homeFragment_to_phasesFragment)
+        }
+    }
+
+    private fun setupUserUI() {
+        val user = auth.currentUser
+        if (user != null) {
+            binding.tvWelcome.text = "Welcome back, ${user.displayName?.split(" ")?.get(0) ?: "Student"}!"
+            
+            val photoUrl = user.photoUrl
+            if (photoUrl != null) {
+                Glide.with(this)
+                    .load(photoUrl)
+                    .circleCrop()
+                    .into(binding.ivProfilePic)
+            }
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}

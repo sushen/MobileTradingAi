@@ -1,0 +1,198 @@
+You are an expert Android engineer, Meta SDK integrator, and QA auditor.
+
+Your task is to:
+
+1. Integrate Meta (Facebook) SDK
+2. Verify full implementation
+3. Guide required manual steps (Meta + Google Play)
+4. Update or append `context.md` as a persistent memory
+
+---
+
+# 📥 VARIABLES (Fill before running)
+
+```text
+APP_ID = <META_APP_ID>
+CLIENT_TOKEN = <META_CLIENT_TOKEN>
+PACKAGE_NAME = <ANDROID_PACKAGE_NAME>
+LAUNCHER_ACTIVITY = <FULL_CLASS_NAME>
+SHA_KEY_HASH = <OPTIONAL_IF_AVAILABLE>
+```
+
+---
+
+# 🎯 OBJECTIVE
+
+Make the Meta SDK fully functional and production-ready.
+
+---
+
+# ✅ STEP 1: SDK Integration
+
+Ensure dependency exists:
+
+```gradle
+implementation 'com.facebook.android:facebook-android-sdk:latest.release'
+```
+
+---
+
+# ✅ STEP 2: App ID Setup
+
+strings.xml:
+
+```xml
+<string name="facebook_app_id">${APP_ID}</string>
+```
+
+Manifest:
+
+```xml
+<meta-data android:name="com.facebook.sdk.ApplicationId"
+    android:value="@string/facebook_app_id"/>
+```
+
+---
+
+# ✅ STEP 3: Client Token Setup
+
+strings.xml:
+
+```xml
+<string name="facebook_client_token">${CLIENT_TOKEN}</string>
+```
+
+Manifest:
+
+```xml
+<meta-data android:name="com.facebook.sdk.ClientToken"
+    android:value="@string/facebook_client_token"/>
+```
+
+---
+
+# ✅ STEP 4: Enable SDK Features
+
+```xml
+<meta-data android:name="com.facebook.sdk.AutoInitEnabled" android:value="true"/>
+<meta-data android:name="com.facebook.sdk.AutoLogAppEventsEnabled" android:value="true"/>
+<meta-data android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled" android:value="true"/>
+```
+
+---
+
+# ✅ STEP 5: Permissions
+
+```xml
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+```
+
+---
+
+# ✅ STEP 6: Event Logging
+
+```kotlin
+AppEventsLogger.newLogger(context).logEvent("fb_mobile_test_event")
+```
+
+---
+
+# ✅ STEP 7: Debug Mode
+
+```kotlin
+FacebookSdk.setIsDebugEnabled(true)
+FacebookSdk.addLoggingBehavior(LoggingBehavior.APP_EVENTS)
+```
+
+---
+
+# ⚠️ STEP 8: MANUAL WORKFLOW (CRITICAL)
+
+## 🔹 PART A — Meta Setup
+
+* Go to Meta for Developers
+* Create App
+* Add Android platform:
+
+  * Package Name = ${PACKAGE_NAME}
+  * Launcher Activity = ${LAUNCHER_ACTIVITY}
+
+---
+
+## 🔹 PART B — Google Play (REQUIRED BEFORE SHA)
+
+1. Build release `.aab` file
+2. Upload `.aab` to Google Play Console (Internal Testing or Production)
+3. Wait until Google processes the build
+
+---
+
+## 🔹 PART C — Get SHA from Play Console
+
+* Go to: Setup → App Integrity
+* Copy:
+
+  * **App Signing SHA-1 certificate**
+
+---
+
+## 🔹 PART D — Convert SHA to Key Hash
+
+```bash
+echo YOUR_SHA1 | tr -d ':' | xxd -r -p | openssl base64
+```
+
+---
+
+## 🔹 PART E — Add to Meta
+
+* Go to Meta Dashboard → Settings → Basic
+* Paste Key Hash into **Key Hashes**
+
+---
+
+# 📊 STEP 9: VALIDATION
+
+* Open Meta Events Manager
+* Go to "Test Events"
+* Install app from Play Store (NOT Android Studio)
+* Open app
+* Confirm event appears
+
+---
+
+# 📄 STEP 10: UPDATE context.md
+
+Append or merge:
+
+```md
+## Meta SDK Status
+
+- SDK: ✅
+- App ID: ✅
+- Client Token: ✅
+- Advertiser ID: ✅
+- SHA: ${SHA_KEY_HASH != "" ? "✅" : "❌"}
+
+## Final Status
+${SHA_KEY_HASH != "" ? "✅ Production Ready" : "⚠️ Waiting for Play Store SHA"}
+```
+
+---
+
+# ⚠️ RULES
+
+* Do NOT assume success
+* Do NOT skip Play Store step
+* Do NOT overwrite context.md blindly
+* Debug code must be removable
+
+---
+
+# 🎯 EXPECTED RESULT
+
+* SDK fully integrated
+* Meta fully connected
+* context.md updated
+* Production-ready tracking system

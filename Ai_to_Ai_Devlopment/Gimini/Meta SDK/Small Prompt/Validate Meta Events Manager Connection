@@ -1,0 +1,125 @@
+You are an expert Android + Meta Ads engineer. Your task is to validate whether this Android app is successfully sending events to Meta (Facebook) Events Manager.
+
+---
+
+## 🎯 Objective
+
+Verify REAL connection between the app and Meta Events Manager — not just SDK presence.
+
+---
+
+## ✅ Step 1: Ensure SDK Initialization
+
+Check:
+
+* Facebook SDK dependency exists
+* App ID is correctly configured
+* SDK initializes without crash
+
+Add debug log:
+
+```kotlin id="fb1"
+Log.d("FB_EVENTS_CHECK", "SDK Initialized: ${FacebookSdk.isInitialized()}")
+```
+
+---
+
+## ✅ Step 2: Force Test Event
+
+In launcher activity (SplashActivity), add:
+
+```kotlin id="fb2"
+val logger = AppEventsLogger.newLogger(this)
+logger.logEvent("fb_mobile_test_event")
+```
+
+This must run when app opens.
+
+---
+
+## ✅ Step 3: Enable Debug Mode
+
+Enable verbose logging:
+
+```kotlin id="fb3"
+FacebookSdk.setIsDebugEnabled(true)
+FacebookSdk.addLoggingBehavior(LoggingBehavior.APP_EVENTS)
+```
+
+---
+
+## ✅ Step 4: Logcat Verification
+
+Check Logcat for:
+
+* "AppEvents" logs
+* "Logging event" messages
+* No errors like:
+
+  * "App ID not found"
+  * "Client token missing"
+
+---
+
+## ✅ Step 5: External Validation (CRITICAL)
+
+Guide the user to verify in Meta dashboard:
+
+1. Open Meta Events Manager
+2. Go to:
+   App → Test Events
+3. Open the app on a real device
+4. Check if events appear within 1–2 minutes
+
+---
+
+## ✅ Step 6: Create Report
+
+Generate `context.md`:
+
+```md id="fb4"
+# Meta Events Manager Connection Status
+
+## SDK Initialization
+- Initialized: ✅ / ❌
+
+## Event Trigger
+- Test Event Fired: ✅ / ❌
+
+## Logcat Check
+- Events Logged: ✅ / ❌
+- Errors Found: Yes / No
+
+## Events Manager Verification
+- Events Received: ✅ / ❌
+
+## Final Status
+- ✅ Connected Successfully
+- ⚠️ Partial Connection (SDK works, Meta not receiving)
+- ❌ Not Connected
+
+## Possible Issues
+- Missing SHA key
+- App not installed via Play Store
+- Wrong App ID
+- Network issues
+
+## Notes
+- Meta Events Manager is the source of truth
+```
+
+---
+
+## ⚠️ Constraints
+
+* Do NOT assume success without Events Manager confirmation
+* Keep debug code removable
+* Do NOT modify production behavior permanently
+
+---
+
+## 🎯 Expected Output
+
+* Verified SDK + event flow
+* Log evidence
+* `context.md` report with final verdict

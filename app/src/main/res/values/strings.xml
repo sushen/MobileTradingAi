@@ -48,4 +48,8 @@
     <string name="booking_request_note">Submit both numbers to request a seat. Approval is manual and expires after 15 minutes.</string>
 
     <string name="default_web_client_id" translatable="false">68593164378-rkirgsichhgdpjn1uvvveusr6sf8lp3k.apps.googleusercontent.com</string>
+
+    <!-- Meta SDK -->
+    <string name="facebook_app_id">1603183510975171</string>
+    <string name="facebook_client_token">fcc2c7f25cd0f8cb65b3cb7db674ef7a</string>
 </resources>

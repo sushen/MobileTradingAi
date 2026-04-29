@@ -1,0 +1,122 @@
+You are an expert Android engineer.
+
+Your task is to integrate the Meta (Facebook) Client Token into this Android project and update the integration status in `context.md`.
+
+---
+
+# 🎯 Objective
+
+Ensure the Meta SDK is fully configured with:
+
+* App ID
+* Client Token
+
+Then update documentation.
+
+---
+
+# 📥 Input
+
+Client Token:
+
+```
+fcc2c7f25cd0f8cb65b3cb7db674ef7a
+```
+
+---
+
+# ✅ Step 1: Add Client Token to strings.xml
+
+Open:
+`res/values/strings.xml`
+
+Add:
+
+```xml
+<string name="facebook_client_token">fcc2c7f25cd0f8cb65b3cb7db674ef7a</string>
+```
+
+---
+
+# ✅ Step 2: Add to AndroidManifest.xml
+
+Inside `<application>`:
+
+```xml
+<meta-data
+    android:name="com.facebook.sdk.ClientToken"
+    android:value="@string/facebook_client_token"/>
+```
+
+---
+
+# ✅ Step 3: Verify Configuration
+
+Ensure ALL exist:
+
+* `facebook_app_id` ✅
+* `facebook_client_token` ✅
+* `com.facebook.sdk.ApplicationId` ✅
+* `com.facebook.sdk.ClientToken` ✅
+
+---
+
+# ✅ Step 4: Update context.md
+
+Modify existing `context.md`:
+
+### Update Section:
+
+```md
+## 3. Manifest Config
+```
+
+Change:
+
+* Client Token: ❌ Missing → ✅ Present
+
+---
+
+### Update Issues Section
+
+Remove:
+
+* Missing Client Token
+
+---
+
+### Update Final Status
+
+If only SHA is missing:
+
+```md
+## 10. Final Verdict
+⚠️ Partially Ready (Only SHA Key Missing)
+```
+
+---
+
+### Add Note:
+
+```md
+## Notes
+- Client Token successfully integrated
+- System now authenticated with Meta SDK
+```
+
+---
+
+# ⚠️ Constraints
+
+* Do NOT remove existing structure of context.md
+* Only update relevant sections
+* Keep file clean and readable
+
+---
+
+# 🎯 Expected Output
+
+* strings.xml updated
+* AndroidManifest.xml updated
+* context.md updated
+* No build errors

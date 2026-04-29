@@ -1,0 +1,229 @@
+You are an expert Android engineer, Meta SDK integrator, and QA auditor.
+
+Your task is to:
+
+1. Integrate Meta (Facebook) SDK
+2. Verify full implementation
+3. Guide required manual steps (Meta + Google Play)
+4. Update or append `context.md` as a persistent memory
+
+---
+
+# 📥 VARIABLES (Fill before running)
+
+```text
+APP_ID = <META_APP_ID>
+CLIENT_TOKEN = <META_CLIENT_TOKEN>
+PACKAGE_NAME = <ANDROID_PACKAGE_NAME>
+LAUNCHER_ACTIVITY = <FULL_CLASS_NAME>
+SHA_KEY_HASH = <OPTIONAL_IF_AVAILABLE>
+```
+
+---
+
+# 🎯 OBJECTIVE
+
+Make the Meta SDK fully functional and production-ready.
+
+---
+
+# ✅ STEP 1: SDK Integration
+
+Check and ensure:
+
+* Facebook SDK dependency exists
+* Add if missing:
+  implementation 'com.facebook.android:facebook-android-sdk:latest.release'
+
+---
+
+# ✅ STEP 2: App ID Setup
+
+Ensure:
+
+strings.xml:
+
+```xml
+<string name="facebook_app_id">${APP_ID}</string>
+```
+
+Manifest:
+
+```xml
+<meta-data android:name="com.facebook.sdk.ApplicationId"
+    android:value="@string/facebook_app_id"/>
+```
+
+---
+
+# ✅ STEP 3: Client Token Setup
+
+strings.xml:
+
+```xml
+<string name="facebook_client_token">${CLIENT_TOKEN}</string>
+```
+
+Manifest:
+
+```xml
+<meta-data android:name="com.facebook.sdk.ClientToken"
+    android:value="@string/facebook_client_token"/>
+```
+
+---
+
+# ✅ STEP 4: Enable Auto SDK Behavior
+
+Ensure in Manifest:
+
+```xml
+<meta-data android:name="com.facebook.sdk.AutoInitEnabled" android:value="true"/>
+<meta-data android:name="com.facebook.sdk.AutoLogAppEventsEnabled" android:value="true"/>
+<meta-data android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled" android:value="true"/>
+```
+
+---
+
+# ✅ STEP 5: Permissions
+
+Ensure:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+```
+
+---
+
+# ✅ STEP 6: Event Logging (Test)
+
+Ensure at least one event:
+
+```kotlin
+AppEventsLogger.newLogger(context).logEvent("fb_mobile_test_event")
+```
+
+---
+
+# ✅ STEP 7: Debug Mode
+
+Enable temporarily:
+
+```kotlin
+FacebookSdk.setIsDebugEnabled(true)
+FacebookSdk.addLoggingBehavior(LoggingBehavior.APP_EVENTS)
+```
+
+---
+
+# ⚠️ STEP 8: MANUAL WORKFLOW (DO NOT SKIP)
+
+## Meta Developer (Human Step)
+
+* Create Meta App
+* Add:
+
+  * Package Name = ${PACKAGE_NAME}
+  * Launcher Activity = ${LAUNCHER_ACTIVITY}
+* Add Key Hash (after generation)
+
+---
+
+## Google Play Console (Human Step)
+
+* Go to App Integrity
+* Copy SHA-1 certificate
+* Convert to Key Hash
+
+Command:
+
+```bash
+echo SHA1 | tr -d ':' | xxd -r -p | openssl base64
+```
+
+---
+
+## Add to Meta:
+
+* Paste Key Hash into "Key Hashes"
+
+---
+
+# 📊 STEP 9: VALIDATION
+
+Check:
+
+* SDK initialized
+* Event triggered
+* Logcat shows AppEvents logs
+
+---
+
+## FINAL CHECK (External)
+
+* Open Meta Events Manager
+* Go to "Test Events"
+* Open app on device
+* Confirm event appears
+
+---
+
+# 📄 STEP 10: UPDATE context.md
+
+Merge or append:
+
+```md
+# Meta SDK Integration Audit
+
+## SDK Setup
+- Dependency: ✅
+- App ID: ✅
+- Client Token: ✅
+
+## Manifest
+- Auto Init: ✅
+- Auto Log Events: ✅
+- Advertiser ID: ✅
+
+## App Identity
+- Package: ${PACKAGE_NAME}
+- Launcher: ${LAUNCHER_ACTIVITY}
+
+## Event Logging
+- Implemented: ✅
+
+## Debug
+- Enabled: ✅
+
+## SHA / Key Hash
+- Configured: ${SHA_KEY_HASH != "" ? "✅" : "❌"}
+
+## Installation
+- Play Store Required: ✅
+
+## Final Status
+${SHA_KEY_HASH != "" ? "✅ Production Ready" : "⚠️ Waiting for SHA"}
+
+## Next Steps
+- Add SHA Key (if missing)
+- Verify in Events Manager
+```
+
+---
+
+# ⚠️ RULES
+
+* Do NOT assume success
+* Do NOT overwrite context.md blindly → merge it
+* Keep debug code removable
+* Do NOT modify unrelated systems
+
+---
+
+# 🎯 EXPECTED RESULT
+
+* SDK fully integrated
+* Meta connected
+* context.md updated
+* Clear system state for future reuse
