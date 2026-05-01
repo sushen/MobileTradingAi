@@ -17,10 +17,18 @@ class SplashActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Runtime Verification (Temporary)
+        // Runtime Verification & Immediate Flush
         Log.d("FB_SDK_CHECK", "Initialized: ${FacebookSdk.isInitialized()}")
         val logger = AppEventsLogger.newLogger(this)
-        logger.logEvent("fb_mobile_test_event")
+        
+        // Log guaranteed test event
+        val params = Bundle()
+        params.putString("source", "SplashActivity")
+        logger.logEvent("TEST_EVENT_NOW", params)
+        
+        // CRITICAL: Force flush to bypass buffering for real-time testing
+        AppEventsLogger.onContextStop()
+        Log.d("FB_SDK_CHECK", "Event TEST_EVENT_NOW logged and onContextStop() called for flush.")
 
         // No layout for splash, just a theme-based splash screen or a simple one if needed
         // For now, simple delay and route

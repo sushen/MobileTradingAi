@@ -22,3 +22,10 @@
 
 # AndroidX Navigation
 -keep class androidx.navigation.** { *; }
+
+# Meta (Facebook) SDK
+-keep class com.facebook.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn com.facebook.**
+
