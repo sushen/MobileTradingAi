@@ -1,90 +1,208 @@
-You are an expert Android engineer and AI prompt engineer.
+You are an expert Android engineer, system architect, and AI execution planner.
 
-You are given a project summary (AI-context.md).
+You are given two source files from the project root:
 
-Your task is to generate a HIGH-QUALITY execution prompt for Gemini (Android Studio).
+1. Context file (PRIMARY SOURCE OF TRUTH):
+   context.md
+
+2. Project README (SECONDARY CONTEXT):
+   README.md
+
+---
+
+## SYSTEM ROLE
+
+You are NOT brainstorming.
+
+You are selecting the **single most correct next implementation step** based on the REAL current system state.
 
 ---
 
 ## OBJECTIVE
 
----
+Generate ONE precise, implementation-ready development task for Gemini (Android Studio),
 
-Convert the current project state into ONE clear, actionable development task.
+AND save it to:
 
----
+👉 Ai_to_Ai_Devlopment\Gimini\gemini_next_prompt.txt
 
-## INSTRUCTIONS
-
----
-
-1. Read the AI-context.md carefully
-2. Identify:
-
-   * What is already built
-   * The most logical NEXT feature to implement
-3. Choose ONLY ONE feature (highest priority)
+If the file exists → overwrite it.
 
 ---
 
-## OUTPUT: GEMINI PROMPT
+## SOURCE OF TRUTH RULES (CRITICAL)
+
+1. context.md = Ground truth
+2. README.md = Optional supporting context ONLY
+
+If conflict exists:
+❌ Ignore README
+✅ Trust context.md
+
+If something is not present in context.md:
+❌ Do NOT assume it exists
 
 ---
 
-"You are an Android developer working on an existing project.
+## ANALYSIS PROCESS
+
+### Step 1: Parse context.md
+
+Extract:
+
+- Current architecture
+- Implemented features
+- Partial / broken features
+- Known issues
+- Missing capabilities
+
+### Step 2: Validate with README.md (optional)
+
+Use ONLY if:
+- It matches context.md
+- It adds clarity without contradiction
+
+---
+
+## TASK SELECTION LOGIC (STRICT)
+
+You MUST select ONLY ONE task.
+
+### Priority Order:
+
+1. Fix broken core functionality
+2. Complete partially implemented feature
+3. Fix critical integration issue
+4. Add missing core workflow step
+5. Add validation / persistence layer
+6. UI only if required
+
+---
+
+## HARD CONSTRAINTS
+
+- Task must be:
+  - Small
+  - Executable in one iteration
+  - Directly tied to current system state
+
+- Do NOT:
+  - Combine multiple features
+  - Suggest future roadmap
+  - Add speculative features
+  - Trust README over context.md
+
+---
+
+## OUTPUT FILE CONTENT
+
+Write EXACTLY the following structured prompt:
+
+---
+
+You are an Android developer working on an existing Android project.
 
 ## Context
 
-[Summarize current app state briefly from AI-context.md]
+[Short, factual summary based ONLY on context.md]
+
+---
 
 ## Task
 
-Implement the following feature:
-👉 [Feature Name]
+Implement this one feature:
+👉 [Precise, atomic feature name]
+
+---
+
+## Goal
+
+[1–2 short paragraphs describing expected outcome]
+
+---
 
 ## Requirements
 
-* Follow existing architecture (e.g., MVVM)
-* Reuse existing components where possible
-* Keep code clean and maintainable
+- Follow existing architecture
+- Reuse existing ViewModels / repositories
+- Keep changes minimal
+- Do NOT refactor unrelated code
+- Follow current Firebase / API patterns
+- Use XML UI unless Compose confirmed
+- Respect package structure
+
+---
 
 ## Implementation Steps
 
-1. Identify affected files
-2. Create/modify necessary classes
-3. Update UI (Jetpack Compose if used)
-4. Add business logic
-5. Handle edge cases and validation
-6. Ensure app builds successfully
+1. Identify files
+2. Modify/create logic
+3. UI (if needed)
+4. ViewModel
+5. Repository
+6. States (loading/success/error)
+7. Validation
+8. Consistency
+
+---
+
+## Edge Cases
+
+[List only real ones]
+
+---
 
 ## Output Format
 
-* Provide full code snippets
-* Clearly mention file names and locations
-* Explain changes briefly
+- Full code
+- Clear file paths
+- Minimal explanation
+
+---
 
 ## Constraints
 
-* Do NOT break existing features
-* Do NOT refactor unrelated parts
-* Stay consistent with current architecture"
+- Do NOT break existing features
+- Do NOT change architecture
+- Do NOT assume systems
+- Keep scope tight
 
 ---
 
-## BONUS (IMPORTANT)
+## Why this task
+
+[Why this is the correct next step]
 
 ---
 
-Also output:
+## FILE WRITE INSTRUCTION
 
-## WHY THIS FEATURE
+Save into:
 
-* Why this was chosen
-* How it improves the app
+Ai_to_Ai_Devlopment\Gimini\gemini_next_prompt.txt
+
+Overwrite if exists.
+Do NOT print prompt in chat.
 
 ---
 
-Be precise. Avoid generic instructions.
-Think like a senior dev assigning a task to another dev.
+## FINAL CONFIRMATION
 
-Now generate the Gemini prompt.
+- Selected Feature: [feature name]
+- Source Files Used:
+  - context.md
+  - README.md
+- Output File:
+  Ai_to_Ai_Devlopment\Gimini\gemini_next_prompt.txt
+- Status: Saved successfully
+
+---
+
+## FAILURE HANDLING
+
+If context.md is missing or insufficient:
+
+Output:
+"Context file is insufficient to determine next task"
+
+Do NOT guess.

@@ -1,7 +1,7 @@
 # ShaplaChottor Mobile App
-**AI Research Lab - Learn. Build. Trade.**
+**AI Research Lab - Learn. Build. Code.**
 
-A premium Android application focused on AI-driven trading education and progressive feature unlocks.
+A premium Android application focused on AI-driven coding education and progressive feature unlocks.
 
 ## Tech Stack
 - **Language:** Kotlin
@@ -12,31 +12,41 @@ A premium Android application focused on AI-driven trading education and progres
 
 ## Core Experience
 1. **Google-First Authentication:** Single-click sign-in with your Google Account.
-2. **Education-First Journey:** A fixed 6-phase learning path from Beginner to Advanced.
+2. **Education-First Journey:** A fixed 6-phase learning path from Beginner to Advanced, synced with the web platform.
 3. **Approval-Based Access:** A phase stays locked until the user submits a seat request and an admin approves it.
-4. **Progress-Based Gating:** Advanced tools unlock only as overall progress increases.
-5. **Professional UI:** Clean, branded Android experience under the ShaplaChottor identity.
+4. **Prerequisite Gating:** Phases must be completed in order (e.g., Phase 1 must be unlocked to request Phase 2).
+5. **Real-time Seat Management:** Limited seats (100 per phase) with real-time availability tracking.
+6. **Progress-Based Feature Unlocks:** Advanced tools unlock only as overall journey progress increases.
+7. **Admin Panel:** Built-in management tool for the lead admin (`sushen.biswas.aga@gmail.com`) to approve, reject, or cancel seat bookings.
 
-## Six-Phase System
-The app uses this canonical Firestore-backed phase catalog:
+## Learning Journey (Synced with Web)
+The app uses the canonical 6-phase catalog defined in the AI Research Lab ecosystem:
 
-1. `phase1` - Foundations
-2. `phase2` - Data Analysis
-3. `phase3` - Object-Oriented Programming
-4. `phase4` - System Design
-5. `phase5` - Simulation & Data Systems
-6. `phase6` - Production Engineering
+### Beginner Level
+- **Phase 1: Foundations** - Learn core programming fundamentals required for all future phases. Focus on building basic coding ability and logical thinking.
+- **Phase 2: Data Analysis** - Master practical data analysis techniques for AI and trading workflows.
 
-Each phase document contains:
-- `phaseId`
-- `title`
-- `description`
-- `level`
-- `order`
-- `totalSeats`
-- `bookedSeats`
+### Intermediate Level
+- **Phase 3: Object-Oriented Programming** - Build reusable systems and strong architecture using OOP principles.
+- **Phase 4: System Design** - Design scalable services and robust backend flows for production systems.
 
-If the `phases` collection is empty, the app seeds these 6 canonical phase documents after a signed-in user enters the app.
+### Advanced Level
+- **Phase 5: Simulation & Data Systems** - Build simulation pipelines and data systems for model-backed decisions.
+- **Phase 6: Production Engineering** - Ship production-grade AI workflows with reliability and monitoring.
+
+## Phase State Logic
+- **LOCKED**: Initial state. User must request access (if prerequisites are met).
+- **PENDING**: User has requested a seat. Wait for a WhatsApp call from our team.
+- **UNLOCKED**: Admin approved. User has full access to the classroom content.
+- **TIMER**: Pending requests include a live 15-minute countdown. If no call/approval occurs, the request expires.
+
+## Admin Features
+Access the Admin Panel by tapping the **Admin** chip in the Profile screen (visible only to authorized emails).
+
+- **Pending Tab**: Review new requests with contact details (Phone/WhatsApp) and expiration timers.
+- **Approval**: One-tap approval that instantly unlocks the classroom and updates the user's progress.
+- **Rejection**: Deny requests that don't meet criteria.
+- **Seat Cancellation**: Revoke access to free up seats and re-lock the phase.
 
 ## Setup Instructions
 
@@ -46,74 +56,29 @@ If the `phases` collection is empty, the app seeds these 6 canonical phase docum
 3. Add your SHA-1 and SHA-256 signing fingerprints.
 4. Download `google-services.json` and place it in the `app/` directory.
 5. Enable the **Google** sign-in provider.
-6. Copy the Google Web client ID from Firebase Auth settings.
 
 ### 2. Local Configuration
-Update `app/src/main/res/values/strings.xml`:
-
+The app automatically uses the Web Client ID found in `google-services.json`. Ensure `app/src/main/res/values/strings.xml` contains:
 ```xml
-<string name="default_web_client_id">YOUR_WEB_CLIENT_ID_HERE</string>
+<string name="default_web_client_id">YOUR_WEB_CLIENT_ID_FROM_JSON</string>
 ```
 
-### 3. Firestore Rules
-Deploy the repository's `firestore.rules` file before testing bookings and progress updates.
-
-### 4. Cloud Functions
-Deploy the booking notification backend in `functions/` if you want the admin email alert flow.
-See [docs/firebase_functions_setup.md](/C:/Users/user/StudioProjects/MobileTradingAi/docs/firebase_functions_setup.md:1) for SMTP and secret setup.
-
-### 5. Firestore Collections
-The app relies on these collections:
+### 3. Firestore Collections
 
 #### `users`
-- `id`: String
-- `name`: String
-- `email`: String
-- `role`: String
-- `progress`: Number
-- `phaseProgress`: Map<String, Number>
-- `unlockedFeatures`: Map
-- `unlockedPhases`: Array<String>
-- `completedPhases`: Array<String>
-
-Default user state:
-- `progress = 0`
-- `phaseProgress = {}`
-- `unlockedPhases = []`
-- `completedPhases = []`
+Tracks user progress (`overallProgress`), unlocked phases, and profile details.
 
 #### `phases`
-- `phaseId`: String
-- `title`: String
-- `description`: String
-- `level`: String
-- `order`: Number
-- `totalSeats`: Number
-- `bookedSeats`: Number
+Stores phase metadata, seat counts (`totalSeats`, `availableSeats`), and level descriptions.
 
 #### `bookings`
-- `bookingId`: String (`{userId}_{phaseId}`)
-- `userId`: String
-- `phaseId`: String
-- `phoneNumber`: String
-- `whatsappNumber`: String
-- `status`: String (`pending`, `approved`, `expired`)
-- `createdAt`: Number
-- `expiresAt`: Number
+- `status`: `pending`, `approved`, `rejected`, `cancelled`, `expired`
+- `expiresAt`: 15-minute window for manual approval.
 
 ## Feature Gating Logic
-- Overall progress is calculated across all 6 phases.
-- **Bot Setup** unlocks at **30%** overall progress.
-- **Investment Features** unlock at **60%** overall progress.
-- **Affiliate System** unlocks at **100%** overall progress.
-
-## Build & Run
-1. Open the project in **Android Studio**.
-2. Sync Gradle.
-3. Deploy `firestore.rules`.
-4. Deploy the Cloud Function in `functions/` if you need admin email notifications.
-5. Run the app.
-6. Sign in with Google and verify that booking requests are written to `bookings`, remain pending until admin approval, notify the admin by email, and only unlock phases after approval.
+- **AI Bot Setup**: Unlocks at **30%** progress.
+- **Investment Dashboard**: Unlocks at **60%** progress.
+- **Affiliate System**: Unlocks at **100%** progress.
 
 ---
 (c) 2026 ShaplaChottor AI Research Lab

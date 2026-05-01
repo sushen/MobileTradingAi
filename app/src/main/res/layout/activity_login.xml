@@ -34,18 +34,18 @@
 
     <Space
         android:layout_width="match_parent"
-        android:layout_height="48dp" />
+        android:layout_height="32dp" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_google_login"
         style="@style/Widget.Material3.Button.TonalButton"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
+        android:layout_height="56dp"
+        android:layout_marginTop="32dp"
         android:text="Sign in with Google"
         android:textAllCaps="false"
-        android:textSize="18sp"
-        app:icon="@android:drawable/ic_menu_today"
-        app:iconSize="24dp" />
+        app:icon="@drawable/ic_google_logo"
+        app:iconTint="@null" />
 
     <com.google.android.material.progressindicator.CircularProgressIndicator
         android:id="@+id/loading_progress"

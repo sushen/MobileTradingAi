@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 class PhaseViewModel(private val repository: PhaseRepository) : ViewModel() {
 
     private val _allPhases = MutableLiveData<List<Phase>>()
+    val allPhases: LiveData<List<Phase>> = _allPhases
     private val _filteredPhases = MutableLiveData<List<Phase>>()
     val phases: LiveData<List<Phase>> = _filteredPhases
 
@@ -22,21 +23,23 @@ class PhaseViewModel(private val repository: PhaseRepository) : ViewModel() {
     private val _bookingResult = MutableLiveData<BookingRequestResult>()
     val bookingResult: LiveData<BookingRequestResult> = _bookingResult
 
-    private var selectedLevel: String = "Beginner"
+    val selectedLevel: String get() = _selectedLevel
+    private var _selectedLevel: String = "Beginner"
 
     fun loadPhases() {
         viewModelScope.launch {
             val phases = repository.getPhases()
             _allPhases.value = phases
             _bookingStates.value = repository.getCurrentUserBookings(phases)
-            filterByLevel(selectedLevel)
+            filterByLevel(_selectedLevel)
         }
     }
 
     fun filterByLevel(level: String) {
-        selectedLevel = level
-        _filteredPhases.value = _allPhases.value?.filter { it.level.equals(level, ignoreCase = true) }
-            ?.sortedBy { it.order }
+        _selectedLevel = level
+        val all = _allPhases.value ?: return
+        _filteredPhases.value = all.filter { it.level.equals(level, ignoreCase = true) }
+            .sortedBy { it.order }
     }
 
     fun requestSeat(phase: Phase, phoneNumber: String, whatsappNumber: String) {

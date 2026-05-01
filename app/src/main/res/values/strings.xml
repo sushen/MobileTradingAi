@@ -1,13 +1,13 @@
 <resources>
-    <string name="app_name">ShaplaChottor</string>
-    <string name="tagline">Learn. Build. Trade with AI.</string>
-    <string name="risk_disclaimer">Risk disclaimer: Crypto and algorithmic markets are highly volatile. Education is your best defense. Invest only what you can afford to lose.</string>
+    <string name="app_name">Shapla Chottor</string>
+    <string name="tagline">Learn. Build. Code with AI.</string>
+    <string name="risk_disclaimer">Education disclaimer: Coding and AI systems require continuous learning. Build responsibly and verify your logic.</string>
 
     <!-- Navigation -->
     <string name="title_home">Home</string>
     <string name="title_courses">Courses</string>
-    <string name="title_my_learning">My Learning</string>
-    <string name="title_advanced">Advanced</string>
+    <string name="title_my_learning">Learning</string>
+    <string name="title_advanced">Practical</string>
     <string name="title_profile">Profile</string>
 
     <!-- Home Screen -->
@@ -15,17 +15,17 @@
     <string name="continue_learning">Continue Learning</string>
     <string name="start_learning">Start Learning</string>
     <string name="your_progress">Your Progress</string>
-    <string name="explore_courses">Explore our AI trading courses and start your journey today.</string>
+    <string name="explore_courses">Explore our AI coding courses and start your learning journey today.</string>
 
     <!-- Advanced / Gating -->
     <string name="locked_feature">Feature Locked</string>
     <string name="unlock_requirement">Complete %1$d%% of your courses to unlock this feature.</string>
-    <string name="unlock_bot_install">Unlock Trading Bot Setup (30% Progress)</string>
-    <string name="unlock_investments">Unlock Investment Dashboard (60% Progress)</string>
-    <string name="unlock_affiliate">Unlock Affiliate System (100% Progress)</string>
+    <string name="unlock_bot_install">Unlock Practical Bot Implementation (30% Progress)</string>
+    <string name="unlock_investments">Unlock Practical Investment Strategies (60% Progress)</string>
+    <string name="unlock_affiliate">Unlock Practical Affiliate Systems (100% Progress)</string>
 
     <!-- Features (from original app, moved to advanced) -->
-    <string name="trading_bot">Trading Bot</string>
+    <string name="trading_bot">AI Bot</string>
     <string name="investment_dashboard">Investments</string>
     <string name="affiliate_system">Affiliates</string>
 
@@ -47,5 +47,9 @@
     <string name="booking_whatsapp_hint">WhatsApp number</string>
     <string name="booking_request_note">Submit both numbers to request a seat. Approval is manual and expires after 15 minutes.</string>
 
-    <string name="default_web_client_id" translatable="false">YOUR_WEB_CLIENT_ID_HERE</string>
+    <string name="default_web_client_id" translatable="false">68593164378-rkirgsichhgdpjn1uvvveusr6sf8lp3k.apps.googleusercontent.com</string>
+
+    <!-- Meta SDK -->
+    <string name="facebook_app_id">1603183510975171</string>
+    <string name="facebook_client_token">fcc2c7f25cd0f8cb65b3cb7db674ef7a</string>
 </resources>

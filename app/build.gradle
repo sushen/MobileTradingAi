@@ -1,20 +1,25 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
-    id 'com.google.gms.google-services'
     id 'androidx.navigation.safeargs.kotlin'
 }
 
+// Apply Google Services plugin only if the JSON file exists
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
+
 android {
     namespace 'com.shaplachottor.app'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.shaplachottor.app"
         minSdk 24
-        targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
+        targetSdk 35
+        versionCode 6
+        versionName "1.0.6"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -23,6 +28,9 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
         }
         debug {
             minifyEnabled false
@@ -64,11 +72,15 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-storage'
     implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-messaging'
 
     implementation 'com.google.android.gms:play-services-auth:21.2.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1'
     implementation 'com.github.bumptech.glide:glide:4.16.0'
     annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
+
+    // Meta (Facebook) SDK
+    implementation 'com.facebook.android:facebook-android-sdk:latest.release'
 
     testImplementation 'androidx.arch.core:core-testing:2.2.0'
     testImplementation 'junit:junit:4.13.2'
