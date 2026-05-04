@@ -216,7 +216,6 @@ class PhasesFragment : Fragment() {
         val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
         val existingBooking = currentBookingStates[phase.phaseId]
         if (existingBooking != null) {
-            dialogBinding.etPhoneNumber.setText(existingBooking.phoneNumber)
             dialogBinding.etWhatsappNumber.setText(existingBooking.whatsappNumber)
         }
 
@@ -229,20 +228,17 @@ class PhasesFragment : Fragment() {
 
         dialog.setOnShowListener {
             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val phoneNumber = dialogBinding.etPhoneNumber.text?.toString().orEmpty().trim()
                 val whatsappNumber = dialogBinding.etWhatsappNumber.text?.toString().orEmpty().trim()
 
-                dialogBinding.inputLayoutPhoneNumber.error =
-                    if (phoneNumber.isBlank()) "Phone number is required." else null
                 dialogBinding.inputLayoutWhatsappNumber.error =
                     if (whatsappNumber.isBlank()) "WhatsApp number is required." else null
 
-                if (phoneNumber.isBlank() || whatsappNumber.isBlank()) {
+                if (whatsappNumber.isBlank()) {
                     return@setOnClickListener
                 }
 
                 dialog.dismiss()
-                viewModel.requestSeat(phase, phoneNumber, whatsappNumber)
+                viewModel.requestSeat(phase, whatsappNumber, whatsappNumber)
             }
         }
 

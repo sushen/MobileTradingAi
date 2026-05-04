@@ -163,9 +163,18 @@ class AdminPanelFragment : Fragment() {
             val timeFormatter = DateFormat.getTimeFormat(requireContext())
             
             holder.binding.apply {
-                tvUserEmail.text = "UID: ${request.userId}"
+                // Fetch and display user details
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val user = appStore.getUser(request.userId)
+                    tvUserEmail.text = if (user != null) {
+                        "${user.name}\n${user.email}"
+                    } else {
+                        "UID: ${request.userId}"
+                    }
+                }
+
                 tvPhaseId.text = "Phase: ${request.phaseId}\nStatus: ${request.status.uppercase()}"
-                tvContactInfo.text = "P: ${request.phoneNumber} | W: ${request.whatsappNumber}"
+                tvContactInfo.text = "WhatsApp: ${request.whatsappNumber}"
                 
                 if (request.status == Booking.STATUS_PENDING) {
                     tvExpiresAt.visibility = View.VISIBLE
@@ -188,6 +197,28 @@ class AdminPanelFragment : Fragment() {
                 btnReject.setOnClickListener { 
                     if (request.status == Booking.STATUS_APPROVED) onCancel(request)
                     else onReject(request)
+                }
+                btnWhatsApp.setOnClickListener {
+                    try {
+                        // Clean number: keep only digits
+                        val cleanedNumber = request.whatsappNumber.filter { it.isDigit() }
+                        val url = "https://api.whatsapp.com/send?phone=$cleanedNumber"
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                        intent.data = android.net.Uri.parse(url)
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(requireContext(), "Could not open WhatsApp", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                btnCopy.setOnClickListener {
+                    try {
+                        val clipboard = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("WhatsApp Number", request.whatsappNumber)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(requireContext(), "Number copied: ${request.whatsappNumber}", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(requireContext(), "Failed to copy", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }

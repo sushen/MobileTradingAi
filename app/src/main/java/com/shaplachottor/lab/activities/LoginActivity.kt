@@ -14,10 +14,12 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.shaplachottor.lab.BuildConfig
 import com.shaplachottor.lab.R
 import com.shaplachottor.lab.databinding.ActivityLoginBinding
 import com.shaplachottor.lab.models.User
 import com.shaplachottor.lab.repository.UserRepository
+import android.os.Build
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -47,6 +49,7 @@ class LoginActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupGoogleSignIn()
+        displayVersionInfo()
 
         binding.btnGoogleLogin.setOnClickListener {
             showLoading(true)
@@ -86,6 +89,30 @@ class LoginActivity : AppCompatActivity() {
             } finally {
                 showLoading(false)
             }
+        }
+    }
+
+    private fun displayVersionInfo() {
+        val versionName = BuildConfig.VERSION_NAME
+        val buildType = BuildConfig.BUILD_TYPE
+
+        // Try to get branch from BuildConfig, then from generated resValue
+        var branch = BuildConfig.CURRENT_GIT_BRANCH
+        if (branch.isNullOrEmpty()) {
+            val resId = resources.getIdentifier("git_branch_res", "string", packageName)
+            if (resId != 0) {
+                branch = getString(resId)
+            }
+        }
+
+        binding.tvVersionInfo.text = getString(R.string.version_label, versionName)
+
+        if (!branch.isNullOrEmpty()) {
+            val branchInfo = if (buildType != "release") "$branch-$buildType" else branch
+            binding.tvBranchInfo.text = getString(R.string.branch_label, branchInfo)
+            binding.tvBranchInfo.visibility = View.VISIBLE
+        } else {
+            binding.tvBranchInfo.visibility = View.GONE
         }
     }
 

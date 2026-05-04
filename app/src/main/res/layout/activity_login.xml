@@ -55,4 +55,20 @@
         android:indeterminate="true"
         android:visibility="gone" />
 
+    <TextView
+        android:id="@+id/tv_version_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:textAppearance="?attr/textAppearanceLabelSmall"
+        android:textColor="?attr/colorSecondary" />
+
+    <TextView
+        android:id="@+id/tv_branch_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textAppearance="?attr/textAppearanceLabelSmall"
+        android:textColor="?attr/colorSecondary" />
+
 </LinearLayout>

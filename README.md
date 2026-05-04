@@ -8,7 +8,7 @@ A premium Android application focused on AI-driven coding education and progress
 - **Architecture:** MVVM + Repository Pattern
 - **UI:** Material 3, ViewBinding, Navigation Component
 - **Backend:** Firebase (Google Auth, Firestore, Storage, Analytics)
-- **Package Name:** `com.shaplachottor.app`
+- **Package Name:** `com.shaplachottor.lab`
 
 ## Core Experience
 1. **Google-First Authentication:** Single-click sign-in with your Google Account.

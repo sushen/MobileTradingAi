@@ -9,6 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import com.facebook.FacebookSdk
 import com.facebook.appevents.AppEventsLogger
 import com.google.firebase.auth.FirebaseAuth
+import com.shaplachottor.lab.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 class SplashActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_splash)
 
         // Runtime Verification & Immediate Flush
         Log.d("FB_SDK_CHECK", "Initialized: ${FacebookSdk.isInitialized()}")

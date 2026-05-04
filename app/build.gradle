@@ -4,6 +4,10 @@ plugins {
     id 'androidx.navigation.safeargs.kotlin'
 }
 
+def getGitBranch = { ->
+    return "v-0.0.3"
+}
+
 // Apply Google Services plugin only if the JSON file exists
 if (file('google-services.json').exists()) {
     apply plugin: 'com.google.gms.google-services'
@@ -20,6 +24,9 @@ android {
         targetSdk 35
         versionCode 6
         versionName "1.0.6"
+
+        buildConfigField "String", "CURRENT_GIT_BRANCH", "\"v-0.0.3\""
+        resValue "string", "git_branch_res", "v-0.0.3"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -48,6 +55,7 @@ android {
 
     buildFeatures {
         viewBinding true
+        buildConfig true
     }
 }
 
