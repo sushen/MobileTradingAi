@@ -11,6 +11,8 @@ import com.shaplachottor.lab.models.BookingRequestResult
 import com.shaplachottor.lab.models.Lesson
 import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.models.User
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 
 open class PhaseRepository(
     private val authSessionProvider: AuthSessionProvider = AppGraph.authSessionProvider(),
@@ -56,8 +58,15 @@ open class PhaseRepository(
     }
 
     suspend fun getLessonsForPhase(phaseId: String): List<Lesson> {
+        val userId = authSessionProvider.currentUser()?.uid
+        val completedIds = if (userId != null) {
+            appStore.getCompletedLessonIds(userId, phaseId)
+        } else {
+            emptyList()
+        }
+
         return try {
-            when (phaseId) {
+            val baseLessons = when (phaseId) {
                 PhaseCatalog.PHASE1 -> listOf(
                     Lesson("L1", "Introduction to AI Coding", "Basics of how AI works in software development", false, "video"),
                     Lesson("L2", "Setting up Environment", "Installing required IDEs and libraries", false, "text"),
@@ -90,6 +99,10 @@ open class PhaseRepository(
                 )
                 else -> emptyList()
             }
+            
+            baseLessons.map { lesson ->
+                lesson.copy(isCompleted = completedIds.contains(lesson.id))
+            }
         } catch (e: Exception) {
             emptyList()
         }
@@ -99,27 +112,30 @@ open class PhaseRepository(
         val userId = authSessionProvider.currentUser()?.uid ?: return false
 
         return try {
+            // 1. Persist individual lesson completion
+            appStore.updateLessonCompletion(userId, phaseId, lessonId, isCompleted)
+
+            // 2. Fetch all lessons and their completion to calculate phase progress
+            val lessons = getLessonsForPhase(phaseId)
+            val totalLessons = lessons.size
+            if (totalLessons == 0) return false
+            
+            val completedCount = lessons.count { it.isCompleted }
+            val phaseProgressPercent = (completedCount * 100) / totalLessons
+
+            // 3. Update User object
             val user = appStore.getUser(userId) ?: return false
-            val totalLessons = 3
             val currentPhaseProgressMap = user.phaseProgress.toMutableMap()
-            val currentPhaseProgress = currentPhaseProgressMap[phaseId] ?: 0
-            val increment = 100 / totalLessons
-            var newProgress = if (isCompleted) {
-                (currentPhaseProgress + increment).coerceAtMost(100)
-            } else {
-                (currentPhaseProgress - increment).coerceAtLeast(0)
-            }
-
-            if (isCompleted && newProgress >= 90) {
-                newProgress = 100
-            }
-
-            currentPhaseProgressMap[phaseId] = newProgress
+            currentPhaseProgressMap[phaseId] = phaseProgressPercent
 
             val completedPhases = user.completedPhases.toMutableList()
-            if (newProgress == 100 && !completedPhases.contains(phaseId)) {
+            if (phaseProgressPercent == 100 && !completedPhases.contains(phaseId)) {
                 completedPhases.add(phaseId)
-            } else if (newProgress < 100 && completedPhases.contains(phaseId)) {
+                // Trigger affiliate conversion if Phase 1 is completed
+                if (phaseId == PhaseCatalog.PHASE1 && user.referredBy != null) {
+                    appStore.recordConversion(user.referredBy, userId)
+                }
+            } else if (phaseProgressPercent < 100 && completedPhases.contains(phaseId)) {
                 completedPhases.remove(phaseId)
             }
 
@@ -161,50 +177,72 @@ open class PhaseRepository(
             return BookingRequestResult(BookingRequestOutcome.INVALID_CONTACT_INFO)
         }
 
+        val db = FirebaseFirestore.getInstance()
         return try {
             val bookingId = "${userId}_${phase.phaseId}"
-            val currentPhase = appStore.getPhase(phase.phaseId)
-                ?: PhaseCatalog.findById(phase.phaseId)
-                ?: throw IllegalStateException("Phase not found")
-            val existingBooking = appStore.getBooking(bookingId)?.normalizeBooking()
+            
+            db.runTransaction { transaction ->
+                val phaseRef = db.collection("phases").document(phase.phaseId)
+                val phaseSnap = transaction.get(phaseRef)
+                
+                // If not in Firestore yet, use catalog defaults
+                val total = if (phaseSnap.exists()) phaseSnap.getLong("totalSeats")?.toInt() ?: 100 else 100
+                val booked = if (phaseSnap.exists()) phaseSnap.getLong("bookedSeats")?.toInt() ?: 0 else 0
 
-            when (existingBooking?.status) {
-                Booking.STATUS_PENDING -> {
-                    return BookingRequestResult(
-                        outcome = BookingRequestOutcome.ALREADY_PENDING,
-                        booking = existingBooking
-                    )
+                if (booked >= total) {
+                    return@runTransaction BookingRequestResult(BookingRequestOutcome.NO_SEATS_AVAILABLE)
                 }
 
-                Booking.STATUS_APPROVED -> {
-                    return BookingRequestResult(
-                        outcome = BookingRequestOutcome.ALREADY_APPROVED,
-                        booking = existingBooking
-                    )
+                val bookingRef = db.collection("bookings").document(bookingId)
+                val existingBookingSnap = transaction.get(bookingRef)
+                
+                if (existingBookingSnap.exists()) {
+                    val status = existingBookingSnap.getString("status")
+                    if (status == Booking.STATUS_PENDING) {
+                        return@runTransaction BookingRequestResult(
+                            outcome = BookingRequestOutcome.ALREADY_PENDING,
+                            booking = existingBookingSnap.toObject(Booking::class.java)
+                        )
+                    }
+                    if (status == Booking.STATUS_APPROVED) {
+                        return@runTransaction BookingRequestResult(
+                            outcome = BookingRequestOutcome.ALREADY_APPROVED,
+                            booking = existingBookingSnap.toObject(Booking::class.java)
+                        )
+                    }
                 }
-            }
 
-            if (currentPhase.bookedSeats >= currentPhase.totalSeats) {
-                return BookingRequestResult(BookingRequestOutcome.NO_SEATS_AVAILABLE)
-            }
+                val now = System.currentTimeMillis()
+                val booking = Booking(
+                    bookingId = bookingId,
+                    userId = userId,
+                    phaseId = phase.phaseId,
+                    phoneNumber = sanitizedPhoneNumber,
+                    whatsappNumber = sanitizedWhatsappNumber,
+                    createdAt = now,
+                    expiresAt = now + Booking.EXPIRATION_WINDOW_MILLIS,
+                    status = Booking.STATUS_PENDING
+                )
 
-            val now = System.currentTimeMillis()
-            val booking = Booking(
-                bookingId = bookingId,
-                userId = userId,
-                phaseId = phase.phaseId,
-                phoneNumber = sanitizedPhoneNumber,
-                whatsappNumber = sanitizedWhatsappNumber,
-                createdAt = now,
-                expiresAt = now + Booking.EXPIRATION_WINDOW_MILLIS,
-                status = Booking.STATUS_PENDING
-            )
-
-            appStore.setBooking(booking)
-            BookingRequestResult(
-                outcome = BookingRequestOutcome.REQUEST_CREATED,
-                booking = booking
-            )
+                // Atomic Updates: Reserve Seat + Create Booking
+                transaction.set(bookingRef, booking)
+                
+                // Use set with merge to ensure the phase document exists if it didn't before
+                val phaseUpdates = mapOf(
+                    "bookedSeats" to booked + 1,
+                    "totalSeats" to total,
+                    "phaseId" to phase.phaseId,
+                    "title" to phase.title,
+                    "level" to phase.level,
+                    "order" to phase.order
+                )
+                transaction.set(phaseRef, phaseUpdates, com.google.firebase.firestore.SetOptions.merge())
+                
+                BookingRequestResult(
+                    outcome = BookingRequestOutcome.REQUEST_CREATED,
+                    booking = booking
+                )
+            }.await()
         } catch (e: Exception) {
             BookingRequestResult(BookingRequestOutcome.FAILED)
         }
@@ -229,49 +267,122 @@ open class PhaseRepository(
     }
 
     suspend fun approveBooking(bookingId: String): Boolean {
+        val db = FirebaseFirestore.getInstance()
         return try {
-            val booking = appStore.getBooking(bookingId)?.normalizeBooking() ?: return false
-
-            when (booking.status) {
-                Booking.STATUS_APPROVED -> true
-                Booking.STATUS_EXPIRED -> false
-                Booking.STATUS_PENDING -> {
-                    val phase = appStore.getPhase(booking.phaseId)
-                        ?: PhaseCatalog.findById(booking.phaseId)
-                        ?: return false
-                    if (phase.bookedSeats >= phase.totalSeats) {
-                        appStore.setBooking(booking.copy(status = Booking.STATUS_EXPIRED))
-                        return false
-                    }
-
-                    val user = appStore.getUser(booking.userId)
-                    appStore.setBooking(booking.copy(status = Booking.STATUS_APPROVED))
-                    appStore.setPhase(phase.copy(bookedSeats = phase.bookedSeats + 1))
-                    appStore.setUser(
-                        user?.withUnlockedPhase(booking.phaseId)
-                            ?: buildDefaultUser(booking.userId, booking.phaseId)
-                    )
-                    true
+            db.runTransaction { transaction ->
+                val bookingRef = db.collection("bookings").document(bookingId)
+                val bookingSnap = transaction.get(bookingRef)
+                
+                if (!bookingSnap.exists() || bookingSnap.getString("status") != Booking.STATUS_PENDING) {
+                    return@runTransaction false
                 }
 
-                else -> false
-            }
+                val phaseId = bookingSnap.getString("phaseId") ?: return@runTransaction false
+                val userId = bookingSnap.getString("userId") ?: return@runTransaction false
+                
+                // Seat was already incremented in requestSeat()
+                // We just approve and unlock the phase here
+                val userRef = db.collection("users").document(userId)
+                val userSnap = transaction.get(userRef)
+                val unlocked = (userSnap.get("unlockedPhases") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+
+                transaction.update(bookingRef, "status", Booking.STATUS_APPROVED)
+                if (!unlocked.contains(phaseId)) {
+                    transaction.update(userRef, "unlockedPhases", unlocked + phaseId)
+                }
+                true
+            }.await()
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun rejectBooking(bookingId: String): Boolean {
+        val db = FirebaseFirestore.getInstance()
+        return try {
+            db.runTransaction { transaction ->
+                val bookingRef = db.collection("bookings").document(bookingId)
+                val bookingSnap = transaction.get(bookingRef)
+                
+                if (!bookingSnap.exists() || bookingSnap.getString("status") != Booking.STATUS_PENDING) {
+                    return@runTransaction false
+                }
+
+                val phaseId = bookingSnap.getString("phaseId") ?: return@runTransaction false
+                val phaseRef = db.collection("phases").document(phaseId)
+                val phaseSnap = transaction.get(phaseRef)
+                val booked = phaseSnap.getLong("bookedSeats") ?: 0L
+
+                // Status -> Rejected, Seats -> Decrement (Release the reserved seat)
+                transaction.update(bookingRef, "status", Booking.STATUS_REJECTED)
+                if (booked > 0) {
+                    transaction.update(phaseRef, "bookedSeats", booked - 1)
+                }
+                true
+            }.await()
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun cancelBooking(bookingId: String): Boolean {
+        val db = FirebaseFirestore.getInstance()
+        return try {
+            db.runTransaction { transaction ->
+                val bookingRef = db.collection("bookings").document(bookingId)
+                val bookingSnap = transaction.get(bookingRef)
+                val status = bookingSnap.getString("status") ?: return@runTransaction false
+                
+                if (status == Booking.STATUS_CANCELLED) return@runTransaction true
+
+                if (status == Booking.STATUS_APPROVED) {
+                    val phaseId = bookingSnap.getString("phaseId")!!
+                    val userId = bookingSnap.getString("userId")!!
+                    
+                    val phaseRef = db.collection("phases").document(phaseId)
+                    val phaseSnap = transaction.get(phaseRef)
+                    val booked = phaseSnap.getLong("bookedSeats") ?: 0
+                    
+                    if (booked > 0) transaction.update(phaseRef, "bookedSeats", booked - 1)
+                    
+                    val userRef = db.collection("users").document(userId)
+                    val unlocked = (transaction.get(userRef).get("unlockedPhases") as? List<*>)
+                        ?.mapNotNull { it as? String } ?: emptyList()
+                    
+                    transaction.update(userRef, "unlockedPhases", unlocked - phaseId)
+                }
+                
+                transaction.update(bookingRef, "status", Booking.STATUS_CANCELLED)
+                true
+            }.await()
         } catch (e: Exception) {
             false
         }
     }
 
     suspend fun expireBooking(bookingId: String): Boolean {
+        val db = FirebaseFirestore.getInstance()
         return try {
-            val booking = appStore.getBooking(bookingId)?.normalizeBooking() ?: return false
-            if (booking.status == Booking.STATUS_APPROVED) {
-                return false
-            }
+            db.runTransaction { transaction ->
+                val bookingRef = db.collection("bookings").document(bookingId)
+                val bookingSnap = transaction.get(bookingRef)
+                
+                if (!bookingSnap.exists() || bookingSnap.getString("status") != Booking.STATUS_PENDING) {
+                    return@runTransaction false
+                }
 
-            if (booking.status != Booking.STATUS_EXPIRED) {
-                appStore.setBooking(booking.copy(status = Booking.STATUS_EXPIRED))
-            }
-            true
+                val phaseId = bookingSnap.getString("phaseId") ?: return@runTransaction false
+                val phaseRef = db.collection("phases").document(phaseId)
+                val phaseSnap = transaction.get(phaseRef)
+                val booked = phaseSnap.getLong("bookedSeats") ?: 0L
+
+                // Status -> Expired, Seats -> Decrement
+                transaction.update(bookingRef, "status", Booking.STATUS_EXPIRED)
+                if (booked > 0) {
+                    transaction.update(phaseRef, "bookedSeats", booked - 1)
+                }
+                true
+            }.await()
         } catch (e: Exception) {
             false
         }
@@ -298,25 +409,14 @@ open class PhaseRepository(
             normalizedStatus == Booking.STATUS_PENDING -> expiresAt
             else -> 0L
         }
-        val expiredStatus = if (
-            normalizedStatus == Booking.STATUS_PENDING &&
-            normalizedExpiresAt <= now
-        ) {
-            Booking.STATUS_EXPIRED
-        } else {
-            normalizedStatus
-        }
-        val normalizedBooking = copy(
-            createdAt = normalizedCreatedAt,
-            expiresAt = normalizedExpiresAt,
-            status = expiredStatus
-        )
-
-        if (normalizedBooking != this) {
-            appStore.setBooking(normalizedBooking)
+        
+        if (normalizedStatus == Booking.STATUS_PENDING && normalizedExpiresAt <= now) {
+            // Trigger atomic expiration
+            expireBooking(bookingId)
+            return copy(status = Booking.STATUS_EXPIRED)
         }
 
-        return normalizedBooking
+        return this
     }
 
     private fun buildDefaultUser(

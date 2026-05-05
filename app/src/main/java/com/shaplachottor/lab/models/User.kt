@@ -9,5 +9,7 @@ data class User(
     val phaseProgress: Map<String, Int> = emptyMap(),
     val unlockedPhases: List<String> = emptyList(),
     val completedPhases: List<String> = emptyList(),
-    val unlockedFeatures: AdvancedFeatures = AdvancedFeatures()
+    val unlockedFeatures: AdvancedFeatures = AdvancedFeatures(),
+    val referralCode: String = "",
+    val referredBy: String? = null
 )

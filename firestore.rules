@@ -1,146 +1,52 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
-      return request.auth != null;
-    }
 
+    // Auth Helpers
+    function isSignedIn() { return request.auth != null; }
     function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
+      return isSignedIn() && request.auth.token.email == 'sushen.biswas.aga@gmail.com';
     }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
-    function phaseIds() {
-      return ['phase1', 'phase2', 'phase3', 'phase4', 'phase5', 'phase6'];
-    }
-
-    function phaseLevels() {
-      return ['Beginner', 'Intermediate', 'Advanced'];
-    }
-
-    function phaseKeys() {
-      return [
-        'phaseId',
-        'title',
-        'description',
-        'focus',
-        'outcome',
-        'identityShift',
-        'level',
-        'order',
-        'totalSeats',
-        'bookedSeats',
-        'isLocked'
-      ];
-    }
-
-    function requiredPhaseKeys() {
-      return ['phaseId', 'title', 'description', 'level', 'order', 'totalSeats', 'bookedSeats'];
-    }
-
-    function bookingKeys() {
-      return [
-        'bookingId',
-        'userId',
-        'phaseId',
-        'phoneNumber',
-        'whatsappNumber',
-        'createdAt',
-        'expiresAt',
-        'status'
-      ];
-    }
-
-    function validBooking(data, bookingId, userId) {
-      return data.keys().hasOnly(bookingKeys())
-        && data.bookingId == bookingId
-        && data.userId == userId
-        && data.phaseId in phaseIds()
-        && data.phoneNumber is string
-        && data.phoneNumber.size() > 0
-        && data.whatsappNumber is string
-        && data.whatsappNumber.size() > 0
-        && data.createdAt is int
-        && data.expiresAt is int
-        && data.expiresAt > data.createdAt;
-    }
-
+    // User Data: Protect sensitive fields, allow progress updates
     match /users/{userId} {
-      allow read, write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isAdmin() || (isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['unlockedPhases']));
     }
 
+    // Phase Metadata: Admin can update seat counts
     match /phases/{phaseId} {
-      allow read: if isSignedIn();
-
-      allow create: if isAdmin() || (
-        isSignedIn()
-        && phaseId in phaseIds()
-        && request.resource.data.phaseId == phaseId
-        && request.resource.data.keys().hasAll(requiredPhaseKeys())
-        && request.resource.data.keys().hasOnly(phaseKeys())
-        && request.resource.data.title is string
-        && request.resource.data.description is string
-        && request.resource.data.level in phaseLevels()
-        && request.resource.data.order is int
-        && request.resource.data.totalSeats is int
-        && request.resource.data.totalSeats > 0
-        && request.resource.data.bookedSeats is int
-        && request.resource.data.bookedSeats >= 0
-        && request.resource.data.bookedSeats <= request.resource.data.totalSeats
-      );
-
-      allow update: if isAdmin();
-    }
-
-    match /bookings/{bookingId} {
-      allow create: if isSignedIn()
-        && validBooking(request.resource.data, bookingId, request.auth.uid)
-        && request.resource.data.status == 'pending';
-
-      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow update: if (
-        isAdmin()
-        && validBooking(request.resource.data, bookingId, resource.data.userId)
-        && request.resource.data.userId == resource.data.userId
-        && request.resource.data.phaseId == resource.data.phaseId
-        && request.resource.data.status in ['pending', 'approved', 'expired']
-      ) || (
-        isSignedIn()
-        && resource.data.userId == request.auth.uid
-        && validBooking(request.resource.data, bookingId, request.auth.uid)
-        && request.resource.data.phaseId == resource.data.phaseId
-        && resource.data.status != 'approved'
-        && request.resource.data.status in ['pending', 'expired']
-      );
-      allow delete: if false;
-    }
-
-    match /investments/{investmentId} {
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.txHash is string
-        && request.resource.data.status in ['Pending', 'Confirmed', 'Claimed'];
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow update: if isAdmin();
-    }
-
-    match /courses/{courseId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    match /enrollments/{enrollmentId} {
-      allow create, read: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+    // Bookings: Atomic transitions
+    match /bookings/{bookingId} {
+      allow read, list: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isSignedIn() && request.resource.data.status == 'pending'
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin() || (isOwner(resource.data.userId) && request.resource.data.status == 'cancelled');
+    }
+
+    // Referral and Affiliate Stats
+    match /referralEvents/{eventId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.referrerId || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == 'system'); // Placeholder for internal triggers if any
     }
 
     match /affiliateStats/{userId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isOwner(userId) || isAdmin();
       allow write: if isAdmin();
     }
 
-    match /settings/{document=**} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+    // Progress persistence for approved users
+    match /users/{userId}/progress/{phaseId}/lessons/{lessonId} {
+      allow read, write: if isOwner(userId) || isAdmin();
     }
   }
 }

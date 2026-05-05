@@ -6,8 +6,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.shaplachottor.lab.R
@@ -38,22 +38,7 @@ class ProfileFragment : Fragment() {
         loadUserProfile()
         
         binding.btnLogout.setOnClickListener {
-            // 1. Sign out from Firebase
-            authSessionProvider.signOut()
-            
-            // 2. Sign out from Google to prevent auto-login
-            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken(getString(R.string.default_web_client_id))
-                .requestEmail()
-                .build()
-            val googleSignInClient = GoogleSignIn.getClient(requireContext(), gso)
-            googleSignInClient.signOut().addOnCompleteListener {
-                // 3. Navigate back to LoginActivity
-                val intent = Intent(requireContext(), LoginActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                startActivity(intent)
-                requireActivity().finish()
-            }
+            handleLogout()
         }
 
         if (authSessionProvider.currentUser()?.email == "sushen.biswas.aga@gmail.com") {
@@ -84,6 +69,32 @@ class ProfileFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private fun handleLogout() {
+        val hostActivity = activity ?: return
+        binding.btnLogout.isEnabled = false
+
+        authSessionProvider.signOut()
+
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(hostActivity.getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        val googleSignInClient = GoogleSignIn.getClient(hostActivity, gso)
+
+        googleSignInClient.signOut()
+            .addOnCompleteListener(hostActivity) {
+                navigateToLogin(hostActivity)
+            }
+    }
+
+    private fun navigateToLogin(hostActivity: FragmentActivity) {
+        val intent = Intent(hostActivity, LoginActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        hostActivity.startActivity(intent)
+        hostActivity.finish()
     }
 
     override fun onDestroyView() {

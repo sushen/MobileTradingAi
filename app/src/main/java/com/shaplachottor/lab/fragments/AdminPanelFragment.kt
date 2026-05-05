@@ -15,6 +15,7 @@ import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.databinding.FragmentAdminPanelBinding
 import com.shaplachottor.lab.databinding.ItemBookingRequestBinding
 import com.shaplachottor.lab.models.Booking
+import com.shaplachottor.lab.repositories.PhaseRepository
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -82,25 +83,20 @@ class AdminPanelFragment : Fragment() {
         }
     }
 
+    private val phaseRepository = PhaseRepository()
+
     private fun approveBooking(booking: Booking) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val updatedBooking = booking.copy(status = Booking.STATUS_APPROVED)
-                appStore.setBooking(updatedBooking)
-
-                val user = appStore.getUser(booking.userId)
-                if (user != null) {
-                    val updatedUnlockedPhases = user.unlockedPhases.toMutableList()
-                    if (!updatedUnlockedPhases.contains(booking.phaseId)) {
-                        updatedUnlockedPhases.add(booking.phaseId)
-                    }
-                    appStore.setUser(user.copy(unlockedPhases = updatedUnlockedPhases))
+                val success = phaseRepository.approveBooking(booking.bookingId)
+                if (success) {
+                    Toast.makeText(requireContext(), "Approved successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Approval failed", Toast.LENGTH_SHORT).show()
                 }
-
-                Toast.makeText(requireContext(), "Approved successfully", Toast.LENGTH_SHORT).show()
                 loadRequests()
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -108,11 +104,15 @@ class AdminPanelFragment : Fragment() {
     private fun rejectBooking(booking: Booking) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                appStore.setBooking(booking.copy(status = Booking.STATUS_REJECTED))
-                Toast.makeText(requireContext(), "Rejected successfully", Toast.LENGTH_SHORT).show()
+                val success = phaseRepository.rejectBooking(booking.bookingId)
+                if (success) {
+                    Toast.makeText(requireContext(), "Rejected successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Rejection failed", Toast.LENGTH_SHORT).show()
+                }
                 loadRequests()
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -120,21 +120,15 @@ class AdminPanelFragment : Fragment() {
     private fun cancelBooking(booking: Booking) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // 1. Mark booking as cancelled
-                appStore.setBooking(booking.copy(status = Booking.STATUS_CANCELLED))
-
-                // 2. Remove phase from user's unlocked list
-                val user = appStore.getUser(booking.userId)
-                if (user != null) {
-                    val updatedUnlockedPhases = user.unlockedPhases.toMutableList()
-                    updatedUnlockedPhases.remove(booking.phaseId)
-                    appStore.setUser(user.copy(unlockedPhases = updatedUnlockedPhases))
+                val success = phaseRepository.cancelBooking(booking.bookingId)
+                if (success) {
+                    Toast.makeText(requireContext(), "Seat cancelled successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Cancellation failed", Toast.LENGTH_SHORT).show()
                 }
-
-                Toast.makeText(requireContext(), "Seat cancelled successfully", Toast.LENGTH_SHORT).show()
                 loadRequests()
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }

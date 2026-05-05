@@ -1,0 +1,11 @@
+You are a senior Android and Firebase Firestore engineer working on an existing Kotlin Android app.
+
+Your task is to make the core phase booking and approval flow work end to end within the current client-side architecture. Do not add any backend server, Cloud Functions, or external services.
+
+Relevant context: the app uses Firebase Auth and Firestore only. Admin is identified by the fixed email sushen.biswas.aga@gmail.com and all admin actions happen client-side. Users request access to learning phases through bookings. Admin can approve, reject, or cancel a booking. Classroom access depends on users.unlockedPhases. Lesson completion and derived progress are currently updated from the Android client. The current blocker is that firestore.rules does not match actual app behavior. It expects admin custom claims, blocks client-side progress writes, and does not cleanly support the fixed-email admin model. Also, approval and cancellation do not reliably maintain phases.bookedSeats.
+
+Implement one focused fix: update firestore.rules and the minimal Android code needed so booking creation, admin approval, admin rejection, admin cancellation, seat counting, classroom unlocks, and lesson progress all work consistently and safely.
+
+Requirements: support student creation of pending bookings; support fixed-email admin read and write access without custom claims; keep booking statuses pending, approved, rejected, cancelled, and expired; make approval and cancellation update booking status, users.unlockedPhases, and phases.bookedSeats together using Firestore transactions or batched writes; keep these operations idempotent so seats do not double-increment or go negative; allow approved users to persist lesson completion and derived progress fields without violating rules; keep changes minimal and production-safe; do not refactor unrelated screens or placeholder features.
+
+Return exactly: a short summary, files changed, full contents of any new files, patch-style diffs for edited files, and brief verification steps covering booking creation, approval, rejection, cancellation, seat count consistency, classroom access, and lesson progress persistence.

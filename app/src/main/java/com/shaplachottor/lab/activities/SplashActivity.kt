@@ -9,6 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import com.facebook.FacebookSdk
 import com.facebook.appevents.AppEventsLogger
 import com.google.firebase.auth.FirebaseAuth
+import com.shaplachottor.lab.BuildConfig
 import com.shaplachottor.lab.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -19,21 +20,19 @@ class SplashActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
 
-        // Runtime Verification & Immediate Flush
-        Log.d("FB_SDK_CHECK", "Initialized: ${FacebookSdk.isInitialized()}")
-        val logger = AppEventsLogger.newLogger(this)
-        
-        // Log guaranteed test event
-        val params = Bundle()
-        params.putString("source", "SplashActivity")
-        logger.logEvent("TEST_EVENT_NOW", params)
-        
-        // CRITICAL: Force flush to bypass buffering for real-time testing
-        AppEventsLogger.onContextStop()
-        Log.d("FB_SDK_CHECK", "Event TEST_EVENT_NOW logged and onContextStop() called for flush.")
+        if (BuildConfig.DEBUG) {
+            Log.d("FB_SDK_CHECK", "Initialized: ${FacebookSdk.isInitialized()}")
+            val logger = AppEventsLogger.newLogger(this)
+            val params = Bundle().apply {
+                putString("source", "SplashActivity")
+            }
+            logger.logEvent("fb_mobile_test_event", params)
 
-        // No layout for splash, just a theme-based splash screen or a simple one if needed
-        // For now, simple delay and route
+            // Force a flush during validation so test events show up quickly.
+            AppEventsLogger.onContextStop()
+            Log.d("FB_SDK_CHECK", "Event fb_mobile_test_event logged and flushed.")
+        }
+
         lifecycleScope.launch {
             delay(2000)
             val currentUser = FirebaseAuth.getInstance().currentUser

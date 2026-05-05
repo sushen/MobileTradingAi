@@ -5,7 +5,33 @@ plugins {
 }
 
 def getGitBranch = { ->
-    return "v-0.0.3"
+    try {
+        def gitFolder = "$rootDir/.git"
+        def headFile = file("$gitFolder/HEAD")
+        if (headFile.exists()) {
+            def headContent = headFile.text.trim()
+            if (headContent.startsWith("ref: ")) {
+                return headContent.substring(5).split("/").last()
+            } else {
+                return headContent.take(7) // It's a detached HEAD (commit hash)
+            }
+        }
+    } catch (Exception e) {
+        // Fallback to command line if file reading fails
+    }
+
+    try {
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD'
+            standardOutput = stdout
+            ignoreExitValue = true
+        }
+        def branch = stdout.toString().trim()
+        return branch.isEmpty() ? "unknown" : branch
+    } catch (Exception e) {
+        return "unknown"
+    }
 }
 
 // Apply Google Services plugin only if the JSON file exists
@@ -22,11 +48,11 @@ android {
         applicationId "com.shaplachottor.lab"
         minSdk 24
         targetSdk 35
-        versionCode 6
-        versionName "1.0.6"
+        versionCode 8
+        versionName "1.0.8"
 
-        buildConfigField "String", "CURRENT_GIT_BRANCH", "\"v-0.0.3\""
-        resValue "string", "git_branch_res", "v-0.0.3"
+        buildConfigField "String", "CURRENT_GIT_BRANCH", "\"${getGitBranch()}\""
+        resValue "string", "git_branch_res", "${getGitBranch()}"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -78,6 +104,7 @@ dependencies {
     // Kotlin extensions (KTX) are now integrated into the main Firebase artifacts
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-firestore'
+    implementation 'com.google.firebase:firebase-functions'
     implementation 'com.google.firebase:firebase-storage'
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-messaging'

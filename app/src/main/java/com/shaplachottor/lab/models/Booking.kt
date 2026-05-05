@@ -7,8 +7,8 @@ data class Booking(
     val phoneNumber: String = "",
     val whatsappNumber: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val expiresAt: Long = createdAt + EXPIRATION_WINDOW_MILLIS,
-    val status: String = STATUS_PENDING
+    val expiresAt: Long = createdAt + Booking.EXPIRATION_WINDOW_MILLIS,
+    val status: String = Booking.STATUS_PENDING
 ) {
     companion object {
         const val STATUS_PENDING = "pending"

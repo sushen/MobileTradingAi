@@ -17,6 +17,7 @@ import com.shaplachottor.lab.services.AdminNotificationManager
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val authProvider = AppGraph.authSessionProvider()
+    private var adminNotificationManager: AdminNotificationManager? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -40,6 +41,11 @@ class MainActivity : AppCompatActivity() {
         askNotificationPermission()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        adminNotificationManager?.stopListening()
+    }
+
     private fun askNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
@@ -56,7 +62,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkAndStartAdminNotifications() {
         if (authProvider.currentUser()?.email == "sushen.biswas.aga@gmail.com") {
-            AdminNotificationManager(this).startListeningForRequests()
+            if (adminNotificationManager == null) {
+                adminNotificationManager = AdminNotificationManager(this)
+            }
+            adminNotificationManager?.startListeningForRequests()
         }
     }
 }

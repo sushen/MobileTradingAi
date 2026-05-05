@@ -3,13 +3,19 @@ package com.shaplachottor.lab.viewmodels
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.shaplachottor.lab.data.PhaseCatalog
+import androidx.lifecycle.viewModelScope
+import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.models.User
+import com.shaplachottor.lab.repositories.PhaseRepository
+import com.shaplachottor.lab.repository.UserRepository
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
-class MyLearningViewModel : ViewModel() {
+class MyLearningViewModel(
+    private val phaseRepository: PhaseRepository = PhaseRepository(),
+    private val userRepository: UserRepository = UserRepository()
+) : ViewModel() {
 
     private val _userData = MutableLiveData<User?>()
     val userData: LiveData<User?> = _userData
@@ -20,52 +26,31 @@ class MyLearningViewModel : ViewModel() {
     private val _completedPhasesList = MutableLiveData<List<Phase>>()
     val completedPhasesList: LiveData<List<Phase>> = _completedPhasesList
 
-    private val db = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
-
     fun loadUserData() {
-        val userId = auth.currentUser?.uid ?: return
-        db.collection("users").document(userId).addSnapshotListener { snapshot, _ ->
-            val user = snapshot?.toObject(User::class.java)
-            _userData.value = user
-            
-            if (user != null) {
-                if (user.unlockedPhases.isNotEmpty()) {
-                    val lastUnlockedPhaseId = user.unlockedPhases.last()
-                    fetchPhaseDetails(lastUnlockedPhaseId)
-                } else {
-                    _currentPhase.value = null
-                }
+        val userId = AppGraph.authSessionProvider().currentUser()?.uid ?: return
+        
+        viewModelScope.launch {
+            // Use stream for real-time updates
+            AppGraph.appStore().getUserStream(userId).collectLatest { user ->
+                _userData.value = user
+                
+                if (user != null) {
+                    // Current phase is usually the last unlocked one that isn't completed
+                    val lastUnlockedPhaseId = user.unlockedPhases.lastOrNull()
+                    if (lastUnlockedPhaseId != null) {
+                        _currentPhase.value = phaseRepository.getPhaseById(lastUnlockedPhaseId)
+                    } else {
+                        _currentPhase.value = null
+                    }
 
-                if (user.completedPhases.isNotEmpty()) {
-                    fetchCompletedPhasesDetails(user.completedPhases)
-                } else {
-                    _completedPhasesList.value = emptyList()
+                    if (user.completedPhases.isNotEmpty()) {
+                        val phases = phaseRepository.getPhases()
+                        _completedPhasesList.value = phases.filter { user.completedPhases.contains(it.phaseId) }
+                    } else {
+                        _completedPhasesList.value = emptyList()
+                    }
                 }
             }
         }
-    }
-
-    private fun fetchPhaseDetails(phaseId: String) {
-        db.collection("phases").document(phaseId).get().addOnSuccessListener { snapshot ->
-            _currentPhase.value = snapshot.toObject(Phase::class.java) ?: PhaseCatalog.findById(phaseId)
-        }.addOnFailureListener {
-            _currentPhase.value = PhaseCatalog.findById(phaseId)
-        }
-    }
-
-    private fun fetchCompletedPhasesDetails(phaseIds: List<String>) {
-        db.collection("phases").whereIn("phaseId", phaseIds).get()
-            .addOnSuccessListener { snapshot ->
-                val firestorePhases = snapshot.toObjects(Phase::class.java)
-                _completedPhasesList.value = if (firestorePhases.isNotEmpty()) {
-                    firestorePhases.sortedBy { it.order }
-                } else {
-                    phaseIds.mapNotNull(PhaseCatalog::findById).sortedBy { it.order }
-                }
-            }
-            .addOnFailureListener {
-                _completedPhasesList.value = phaseIds.mapNotNull(PhaseCatalog::findById).sortedBy { it.order }
-            }
     }
 }

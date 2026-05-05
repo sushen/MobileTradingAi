@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.shaplachottor.lab.R
 import com.shaplachottor.lab.activities.MainActivity
 import com.shaplachottor.lab.models.Booking
@@ -20,6 +21,7 @@ import com.shaplachottor.lab.models.Booking
 class AdminNotificationManager(private val context: Context) {
     private val db = FirebaseFirestore.getInstance()
     private val channelId = "admin_booking_requests"
+    private var listenerRegistration: ListenerRegistration? = null
 
     init {
         createNotificationChannel()
@@ -40,7 +42,9 @@ class AdminNotificationManager(private val context: Context) {
     }
 
     fun startListeningForRequests() {
-        db.collection("bookings")
+        if (listenerRegistration != null) return
+
+        listenerRegistration = db.collection("bookings")
             .whereEqualTo("status", Booking.STATUS_PENDING)
             .addSnapshotListener { snapshots, e ->
                 if (e != null) return@addSnapshotListener
@@ -52,6 +56,11 @@ class AdminNotificationManager(private val context: Context) {
                     }
                 }
             }
+    }
+
+    fun stopListening() {
+        listenerRegistration?.remove()
+        listenerRegistration = null
     }
 
     private fun showNotification(booking: Booking) {

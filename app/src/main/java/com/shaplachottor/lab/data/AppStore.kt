@@ -10,9 +10,15 @@ interface AppStore {
     suspend fun getPhases(): List<Phase>
     suspend fun getPhase(phaseId: String): Phase?
     suspend fun getUser(userId: String): User?
+    fun getUserStream(userId: String): kotlinx.coroutines.flow.Flow<User?>
     suspend fun setUser(user: User)
     suspend fun getBooking(bookingId: String): Booking?
     suspend fun setBooking(booking: Booking)
     suspend fun getPendingBookings(): List<Booking>
     suspend fun getAllBookings(): List<Booking>
+    suspend fun updateLessonCompletion(userId: String, phaseId: String, lessonId: String, isCompleted: Boolean)
+    suspend fun getCompletedLessonIds(userId: String, phaseId: String): List<String>
+    suspend fun logReferralEvent(referrerId: String, referredUserId: String)
+    suspend fun recordConversion(referrerId: String, referredUserId: String)
+    suspend fun getAffiliateStats(userId: String): Map<String, Any>?
 }
