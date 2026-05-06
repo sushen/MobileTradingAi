@@ -25,12 +25,17 @@ class HomeViewModel(
         val userId = AppGraph.authSessionProvider().currentUser()?.uid ?: return
         
         viewModelScope.launch {
-            AppGraph.appStore().getUserStream(userId).collectLatest { userData ->
-                _user.value = userData
-                
-                userData?.unlockedPhases?.lastOrNull()?.let { phaseId ->
-                    _currentPhase.value = phaseRepository.getPhaseById(phaseId)
+            try {
+                AppGraph.appStore().getUserStream(userId).collectLatest { userData ->
+                    _user.value = userData
+                    
+                    userData?.unlockedPhases?.lastOrNull()?.let { phaseId ->
+                        _currentPhase.value = phaseRepository.getPhaseById(phaseId)
+                    }
                 }
+            } catch (e: Exception) {
+                // This can happen during sign out when permissions are revoked
+                android.util.Log.d("HomeViewModel", "User stream closed: ${e.message}")
             }
         }
     }

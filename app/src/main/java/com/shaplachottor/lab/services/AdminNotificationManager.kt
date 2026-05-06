@@ -47,7 +47,10 @@ class AdminNotificationManager(private val context: Context) {
         listenerRegistration = db.collection("bookings")
             .whereEqualTo("status", Booking.STATUS_PENDING)
             .addSnapshotListener { snapshots, e ->
-                if (e != null) return@addSnapshotListener
+                if (e != null) {
+                    android.util.Log.e("AdminNotificationManager", "Error listening for bookings: ${e.message}")
+                    return@addSnapshotListener
+                }
 
                 for (dc in snapshots!!.documentChanges) {
                     if (dc.type == DocumentChange.Type.ADDED) {

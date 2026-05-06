@@ -36,6 +36,22 @@
         <argument
             android:name="phaseId"
             app:argType="string" />
+        <action
+            android:id="@+id/action_classroomFragment_to_lessonDetailFragment"
+            app:destination="@id/lessonDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/lessonDetailFragment"
+        android:name="com.shaplachottor.lab.fragments.LessonDetailFragment"
+        android:label="Lesson Details"
+        tools:layout="@layout/fragment_lesson_detail">
+        <argument
+            android:name="phaseId"
+            app:argType="string" />
+        <argument
+            android:name="lessonId"
+            app:argType="string" />
     </fragment>
 
     <fragment

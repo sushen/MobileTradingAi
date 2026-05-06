@@ -9,44 +9,64 @@ service cloud.firestore {
     }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
-    // User Data: Protect sensitive fields, allow progress updates
+    // User Data: Owner can update progress but NOT sensitive fields
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) && (!('unlockedPhases' in request.resource.data) || request.resource.data.unlockedPhases.size() == 0);
       allow update: if isAdmin() || (isOwner(userId) &&
         !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['unlockedPhases']));
+        .hasAny(['unlockedPhases', 'email', 'id', 'referralCode', 'referredBy']));
+
+      // Lesson Progress subcollection
+      match /progress/{phaseId}/lessons/{lessonId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
     }
 
-    // Phase Metadata: Admin can update seat counts
+    // Phase Metadata: Allow students only to increment/decrement bookedSeats by 1
     match /phases/{phaseId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bookedSeats']) &&
+        (request.resource.data.bookedSeats == resource.data.bookedSeats + 1 ||
+         request.resource.data.bookedSeats == resource.data.bookedSeats - 1));
     }
 
-    // Bookings: Atomic transitions
+    // Bookings: Managed transitions and expiration
     match /bookings/{bookingId} {
       allow read, list: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isSignedIn() && request.resource.data.status == 'pending'
-                    && request.resource.data.userId == request.auth.uid;
-      allow update: if isAdmin() || (isOwner(resource.data.userId) && request.resource.data.status == 'cancelled');
+      allow create: if isSignedIn() &&
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.status == 'pending';
+      allow update: if isAdmin() || (isOwner(resource.data.userId) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+                      (request.resource.data.status == 'cancelled' ||
+                       (request.resource.data.status == 'expired' &&
+                        resource.data.expiresAt != 0 &&
+                        request.time.toMillis() > resource.data.expiresAt)));
     }
 
-    // Referral and Affiliate Stats
+    // Referral Events: Creation by referred user, conversion status
     match /referralEvents/{eventId} {
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.referrerId || isAdmin());
-      allow create: if isSignedIn();
-      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == 'system'); // Placeholder for internal triggers if any
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.referrerId || request.auth.uid == resource.data.referredUserId || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.referredUserId == request.auth.uid;
+      allow update: if isAdmin() || (isOwner(resource.data.referredUserId) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+                      request.resource.data.status == 'converted');
     }
 
+    // Affiliate Stats: Controlled increments of +1
     match /affiliateStats/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if isAdmin();
-    }
-
-    // Progress persistence for approved users
-    match /users/{userId}/progress/{phaseId}/lessons/{lessonId} {
-      allow read, write: if isOwner(userId) || isAdmin();
+      allow create: if isSignedIn() && request.resource.data.totalInvites == 1 && request.resource.data.conversions == 0;
+      allow update: if isAdmin() || (isSignedIn() &&
+        (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalInvites']) &&
+           request.resource.data.totalInvites == resource.data.totalInvites + 1) ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['conversions']) &&
+           request.resource.data.conversions == resource.data.conversions + 1)
+        ));
     }
   }
 }

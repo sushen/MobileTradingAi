@@ -30,26 +30,31 @@ class MyLearningViewModel(
         val userId = AppGraph.authSessionProvider().currentUser()?.uid ?: return
         
         viewModelScope.launch {
-            // Use stream for real-time updates
-            AppGraph.appStore().getUserStream(userId).collectLatest { user ->
-                _userData.value = user
-                
-                if (user != null) {
-                    // Current phase is usually the last unlocked one that isn't completed
-                    val lastUnlockedPhaseId = user.unlockedPhases.lastOrNull()
-                    if (lastUnlockedPhaseId != null) {
-                        _currentPhase.value = phaseRepository.getPhaseById(lastUnlockedPhaseId)
-                    } else {
-                        _currentPhase.value = null
-                    }
+            try {
+                // Use stream for real-time updates
+                AppGraph.appStore().getUserStream(userId).collectLatest { user ->
+                    _userData.value = user
+                    
+                    if (user != null) {
+                        // Current phase is usually the last unlocked one that isn't completed
+                        val lastUnlockedPhaseId = user.unlockedPhases.lastOrNull()
+                        if (lastUnlockedPhaseId != null) {
+                            _currentPhase.value = phaseRepository.getPhaseById(lastUnlockedPhaseId)
+                        } else {
+                            _currentPhase.value = null
+                        }
 
-                    if (user.completedPhases.isNotEmpty()) {
-                        val phases = phaseRepository.getPhases()
-                        _completedPhasesList.value = phases.filter { user.completedPhases.contains(it.phaseId) }
-                    } else {
-                        _completedPhasesList.value = emptyList()
+                        if (user.completedPhases.isNotEmpty()) {
+                            val phases = phaseRepository.getPhases()
+                            _completedPhasesList.value = phases.filter { user.completedPhases.contains(it.phaseId) }
+                        } else {
+                            _completedPhasesList.value = emptyList()
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                // This can happen during sign out when permissions are revoked
+                android.util.Log.d("MyLearningViewModel", "User stream closed: ${e.message}")
             }
         }
     }

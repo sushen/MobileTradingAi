@@ -168,7 +168,7 @@ class FirestoreAppStore : AppStore {
                     .await()
             }
         } catch (e: Exception) {
-            // Log error
+            android.util.Log.e("FirestoreAppStore", "Error recording conversion for $referrerId: ${e.message}", e)
         }
     }
 

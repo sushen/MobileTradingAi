@@ -36,7 +36,7 @@ class ClassroomFragment : Fragment() {
 
         val repository = PhaseRepository()
         val factory = ClassroomViewModelFactory(repository)
-        viewModel = ViewModelProvider(this, factory)[ClassroomViewModel::class.java]
+        viewModel = ViewModelProvider(requireActivity(), factory)[ClassroomViewModel::class.java]
 
         setupToolbar()
         setupObservers()
@@ -72,7 +72,11 @@ class ClassroomFragment : Fragment() {
             binding.rvLessons.layoutManager = LinearLayoutManager(requireContext())
             binding.rvLessons.adapter = LessonAdapter(lessons, 
                 onLessonClick = { lesson ->
-                    Toast.makeText(requireContext(), "Opening ${lesson.title}", Toast.LENGTH_SHORT).show()
+                    val action = ClassroomFragmentDirections.actionClassroomFragmentToLessonDetailFragment(
+                        args.phaseId,
+                        lesson.id
+                    )
+                    findNavController().navigate(action)
                 },
                 onCompleteToggle = { lesson, isChecked ->
                     viewModel.toggleLessonComplete(args.phaseId, lesson.id, isChecked)

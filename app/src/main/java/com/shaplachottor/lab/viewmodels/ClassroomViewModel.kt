@@ -28,7 +28,15 @@ class ClassroomViewModel(
     private val _accessDenied = MutableLiveData<Boolean>()
     val accessDenied: LiveData<Boolean> = _accessDenied
 
+    private val _selectedLesson = MutableLiveData<Lesson?>()
+    val selectedLesson: LiveData<Lesson?> = _selectedLesson
+
+    private var currentPhaseId: String? = null
+
     fun loadClassroom(phaseId: String) {
+        if (currentPhaseId == phaseId && _lessons.value != null) return
+        currentPhaseId = phaseId
+        
         viewModelScope.launch {
             if (!repository.canAccessPhase(phaseId)) {
                 _accessDenied.value = true
@@ -36,11 +44,53 @@ class ClassroomViewModel(
             }
 
             _phase.value = repository.getPhaseById(phaseId)
-            _lessons.value = repository.getLessonsForPhase(phaseId)
+            refreshLessons(phaseId)
             
             // Fetch user for progress binding
             _user.value = userRepository.getCurrentUserOrNull()
         }
+    }
+
+    private suspend fun refreshLessons(phaseId: String) {
+        val currentLessons = repository.getLessonsForPhase(phaseId)
+        _lessons.value = currentLessons
+        
+        // Update selected lesson if it exists in the list (to refresh isCompleted state)
+        val currentSelectedId = _selectedLesson.value?.id
+        if (currentSelectedId != null) {
+            _selectedLesson.value = currentLessons.find { it.id == currentSelectedId }
+        }
+    }
+
+    fun selectLesson(phaseId: String, lessonId: String) {
+        if (currentPhaseId != phaseId || _lessons.value == null) {
+            loadClassroom(phaseId)
+        }
+        
+        viewModelScope.launch {
+            // Wait for lessons to be loaded if they are null
+            if (_lessons.value == null) {
+                val currentLessons = repository.getLessonsForPhase(phaseId)
+                _lessons.value = currentLessons
+            }
+            _selectedLesson.value = _lessons.value?.find { it.id == lessonId }
+        }
+    }
+
+    private val _operationStatus = MutableLiveData<OperationResult?>()
+    val operationStatus: LiveData<OperationResult?> = _operationStatus
+
+    sealed class OperationResult {
+        object Success : OperationResult()
+        data class Error(val message: String) : OperationResult()
+    }
+
+    fun clearOperationStatus() {
+        _operationStatus.value = null
+    }
+
+    fun completeLesson(phaseId: String, lessonId: String) {
+        toggleLessonComplete(phaseId, lessonId, true)
     }
 
     fun toggleLessonComplete(phaseId: String, lessonId: String, isCompleted: Boolean) {
@@ -48,8 +98,11 @@ class ClassroomViewModel(
             val success = repository.updateLessonProgress(phaseId, lessonId, isCompleted)
             if (success) {
                 // Refresh local state
-                _lessons.value = repository.getLessonsForPhase(phaseId)
+                refreshLessons(phaseId)
                 _user.value = userRepository.getCurrentUserOrNull()
+                _operationStatus.value = OperationResult.Success
+            } else {
+                _operationStatus.value = OperationResult.Error("Failed to update progress. Please check your connection or permissions.")
             }
         }
     }

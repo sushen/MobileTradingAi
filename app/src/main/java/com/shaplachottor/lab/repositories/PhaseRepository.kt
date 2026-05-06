@@ -67,42 +67,38 @@ open class PhaseRepository(
 
         return try {
             val baseLessons = when (phaseId) {
-                PhaseCatalog.PHASE1 -> listOf(
-                    Lesson("L1", "Introduction to AI Coding", "Basics of how AI works in software development", false, "video"),
-                    Lesson("L2", "Setting up Environment", "Installing required IDEs and libraries", false, "text"),
-                    Lesson("L3", "First Program", "Building a simple AI-assisted application", false, "quiz")
-                )
+                PhaseCatalog.PHASE1 -> com.shaplachottor.lab.data.Phase1LessonProvider.getLessons()
                 PhaseCatalog.PHASE2 -> listOf(
-                    Lesson("L1", "Data Analysis Fundamentals", "Introduction to data analysis for AI", false, "video"),
-                    Lesson("L2", "Working with DataFrames", "Pandas and data manipulation techniques", false, "text"),
-                    Lesson("L3", "Visualizing Trends", "Creating meaningful charts from raw data", false, "quiz")
+                    Lesson("L1", PhaseCatalog.PHASE2, "Data Analysis Fundamentals", emptyList(), false, 1),
+                    Lesson("L2", PhaseCatalog.PHASE2, "Working with DataFrames", emptyList(), false, 2),
+                    Lesson("L3", PhaseCatalog.PHASE2, "Visualizing Trends", emptyList(), false, 3)
                 )
                 PhaseCatalog.PHASE3 -> listOf(
-                    Lesson("L1", "OOP Principles", "Understanding classes, objects, and inheritance", false, "video"),
-                    Lesson("L2", "Design Patterns", "Common architectural patterns in software", false, "text"),
-                    Lesson("L3", "Refactoring Code", "Improving system structure for reusability", false, "quiz")
+                    Lesson("L1", PhaseCatalog.PHASE3, "OOP Principles", emptyList(), false, 1),
+                    Lesson("L2", PhaseCatalog.PHASE3, "Design Patterns", emptyList(), false, 2),
+                    Lesson("L3", PhaseCatalog.PHASE3, "Refactoring Code", emptyList(), false, 3)
                 )
                 PhaseCatalog.PHASE4 -> listOf(
-                    Lesson("L1", "Scalability Basics", "Fundamentals of high-traffic system design", false, "video"),
-                    Lesson("L2", "Backend Architecture", "Building robust server-side flows", false, "text"),
-                    Lesson("L3", "Database Optimization", "Designing for performance and reliability", false, "quiz")
+                    Lesson("L1", PhaseCatalog.PHASE4, "Scalability Basics", emptyList(), false, 1),
+                    Lesson("L2", PhaseCatalog.PHASE4, "Backend Architecture", emptyList(), false, 2),
+                    Lesson("L3", PhaseCatalog.PHASE4, "Database Optimization", emptyList(), false, 3)
                 )
                 PhaseCatalog.PHASE5 -> listOf(
-                    Lesson("L1", "Pipeline Simulation", "Building data-driven simulation environments", false, "video"),
-                    Lesson("L2", "Decision Systems", "Logic for model-backed decision making", false, "text"),
-                    Lesson("L3", "Data Consistency", "Managing state in complex data systems", false, "quiz")
+                    Lesson("L1", PhaseCatalog.PHASE5, "Pipeline Simulation", emptyList(), false, 1),
+                    Lesson("L2", PhaseCatalog.PHASE5, "Decision Systems", emptyList(), false, 2),
+                    Lesson("L3", PhaseCatalog.PHASE5, "Data Consistency", emptyList(), false, 3)
                 )
                 PhaseCatalog.PHASE6 -> listOf(
-                    Lesson("L1", "CI/CD for AI", "Automated pipelines for production workflows", false, "video"),
-                    Lesson("L2", "Monitoring & Alerts", "Observability for deployed AI systems", false, "text"),
-                    Lesson("L3", "Reliability Engineering", "Maintenance and scaling in production", false, "quiz")
+                    Lesson("L1", PhaseCatalog.PHASE6, "CI/CD for AI", emptyList(), false, 1),
+                    Lesson("L2", PhaseCatalog.PHASE6, "Monitoring & Alerts", emptyList(), false, 2),
+                    Lesson("L3", PhaseCatalog.PHASE6, "Reliability Engineering", emptyList(), false, 3)
                 )
                 else -> emptyList()
             }
             
             baseLessons.map { lesson ->
                 lesson.copy(isCompleted = completedIds.contains(lesson.id))
-            }
+            }.sortedBy { it.order }
         } catch (e: Exception) {
             emptyList()
         }
@@ -110,55 +106,79 @@ open class PhaseRepository(
 
     suspend fun updateLessonProgress(phaseId: String, lessonId: String, isCompleted: Boolean): Boolean {
         val userId = authSessionProvider.currentUser()?.uid ?: return false
+        val db = FirebaseFirestore.getInstance()
 
         return try {
-            // 1. Persist individual lesson completion
-            appStore.updateLessonCompletion(userId, phaseId, lessonId, isCompleted)
-
-            // 2. Fetch all lessons and their completion to calculate phase progress
+            // 1. Fetch current lessons to calculate new progress state
             val lessons = getLessonsForPhase(phaseId)
-            val totalLessons = lessons.size
-            if (totalLessons == 0) return false
+            val updatedLessons = lessons.map { 
+                if (it.id == lessonId) it.copy(isCompleted = isCompleted) else it 
+            }
             
-            val completedCount = lessons.count { it.isCompleted }
-            val phaseProgressPercent = (completedCount * 100) / totalLessons
+            val totalLessons = updatedLessons.size
+            if (totalLessons == 0) return true
 
-            // 3. Update User object
-            val user = appStore.getUser(userId) ?: return false
-            val currentPhaseProgressMap = user.phaseProgress.toMutableMap()
-            currentPhaseProgressMap[phaseId] = phaseProgressPercent
+            val completedCount = updatedLessons.count { it.isCompleted }
+            val phaseProgressPercent = com.shaplachottor.lab.util.ProgressCalculator.calculatePhaseProgress(completedCount, totalLessons)
 
-            val completedPhases = user.completedPhases.toMutableList()
-            if (phaseProgressPercent == 100 && !completedPhases.contains(phaseId)) {
-                completedPhases.add(phaseId)
-                // Trigger affiliate conversion if Phase 1 is completed
-                if (phaseId == PhaseCatalog.PHASE1 && user.referredBy != null) {
+            // 2. Perform atomic update in a single transaction
+            db.runTransaction { transaction ->
+                val userRef = db.collection("users").document(userId)
+                val lessonRef = userRef.collection("progress")
+                    .document(phaseId)
+                    .collection("lessons")
+                    .document(lessonId)
+
+                val userSnap = transaction.get(userRef)
+                if (!userSnap.exists()) {
+                    throw Exception("User profile not found. Please complete registration.")
+                }
+
+                val user = userSnap.toObject(User::class.java) ?: throw Exception("Failed to parse user profile")
+                
+                // Update lesson completion status
+                transaction.set(lessonRef, mapOf("isCompleted" to isCompleted))
+
+                // Calculate overall progress and feature unlocks
+                val currentPhaseProgressMap = user.phaseProgress.toMutableMap()
+                currentPhaseProgressMap[phaseId] = phaseProgressPercent
+
+                val completedPhases = user.completedPhases.toMutableList()
+                if (com.shaplachottor.lab.util.ProgressCalculator.shouldMarkPhaseAsCompleted(phaseProgressPercent)) {
+                    if (!completedPhases.contains(phaseId)) completedPhases.add(phaseId)
+                } else {
+                    completedPhases.remove(phaseId)
+                }
+
+                val overallProgress = com.shaplachottor.lab.util.ProgressCalculator.calculateOverallProgress(
+                    currentPhaseProgressMap,
+                    PhaseCatalog.phaseIds
+                )
+                
+                val features = com.shaplachottor.lab.util.ProgressCalculator.calculateUnlockedFeatures(overallProgress)
+
+                // Update user document
+                transaction.update(userRef, mapOf(
+                    "phaseProgress" to currentPhaseProgressMap,
+                    "completedPhases" to completedPhases,
+                    "progress" to overallProgress,
+                    "unlockedFeatures" to features
+                ))
+                
+                true
+            }.await()
+
+            // 3. Handle affiliate conversion if Phase 1 is completed
+            if (phaseId == PhaseCatalog.PHASE1 && phaseProgressPercent == 100) {
+                val user = appStore.getUser(userId)
+                if (user?.referredBy != null) {
                     appStore.recordConversion(user.referredBy, userId)
                 }
-            } else if (phaseProgressPercent < 100 && completedPhases.contains(phaseId)) {
-                completedPhases.remove(phaseId)
             }
 
-            val totalProgress = PhaseCatalog.phaseIds.sumOf { catalogPhaseId ->
-                currentPhaseProgressMap[catalogPhaseId] ?: 0
-            }
-            val overallProgress = totalProgress / PhaseCatalog.phaseIds.size
-            val features = AdvancedFeatures(
-                tradingBot = overallProgress >= 30,
-                investment = overallProgress >= 60,
-                affiliate = overallProgress >= 100
-            )
-
-            appStore.setUser(
-                user.copy(
-                    phaseProgress = currentPhaseProgressMap,
-                    completedPhases = completedPhases,
-                    progress = overallProgress,
-                    unlockedFeatures = features
-                )
-            )
             true
         } catch (e: Exception) {
+            android.util.Log.e("PhaseRepository", "Progress update failed: ${e.message}", e)
             false
         }
     }
@@ -227,16 +247,9 @@ open class PhaseRepository(
                 // Atomic Updates: Reserve Seat + Create Booking
                 transaction.set(bookingRef, booking)
                 
-                // Use set with merge to ensure the phase document exists if it didn't before
-                val phaseUpdates = mapOf(
-                    "bookedSeats" to booked + 1,
-                    "totalSeats" to total,
-                    "phaseId" to phase.phaseId,
-                    "title" to phase.title,
-                    "level" to phase.level,
-                    "order" to phase.order
-                )
-                transaction.set(phaseRef, phaseUpdates, com.google.firebase.firestore.SetOptions.merge())
+                // Atomic Update: Reserve Seat
+                // Rule: Students can only update 'bookedSeats' and only by +/- 1
+                transaction.update(phaseRef, "bookedSeats", booked + 1)
                 
                 BookingRequestResult(
                     outcome = BookingRequestOutcome.REQUEST_CREATED,
@@ -335,9 +348,10 @@ open class PhaseRepository(
                 
                 if (status == Booking.STATUS_CANCELLED) return@runTransaction true
 
-                if (status == Booking.STATUS_APPROVED) {
-                    val phaseId = bookingSnap.getString("phaseId")!!
-                    val userId = bookingSnap.getString("userId")!!
+                // Release seat if the booking was active (Pending or Approved)
+                if (status == Booking.STATUS_APPROVED || status == Booking.STATUS_PENDING) {
+                    val phaseId = bookingSnap.getString("phaseId") ?: return@runTransaction false
+                    val userId = bookingSnap.getString("userId") ?: return@runTransaction false
                     
                     val phaseRef = db.collection("phases").document(phaseId)
                     val phaseSnap = transaction.get(phaseRef)
@@ -345,11 +359,17 @@ open class PhaseRepository(
                     
                     if (booked > 0) transaction.update(phaseRef, "bookedSeats", booked - 1)
                     
-                    val userRef = db.collection("users").document(userId)
-                    val unlocked = (transaction.get(userRef).get("unlockedPhases") as? List<*>)
-                        ?.mapNotNull { it as? String } ?: emptyList()
-                    
-                    transaction.update(userRef, "unlockedPhases", unlocked - phaseId)
+                    // Revoke classroom access if it was already approved
+                    if (status == Booking.STATUS_APPROVED) {
+                        val userRef = db.collection("users").document(userId)
+                        val userSnap = transaction.get(userRef)
+                        val unlocked = (userSnap.get("unlockedPhases") as? List<*>)
+                            ?.mapNotNull { it as? String } ?: emptyList()
+                        
+                        if (unlocked.contains(phaseId)) {
+                            transaction.update(userRef, "unlockedPhases", unlocked - phaseId)
+                        }
+                    }
                 }
                 
                 transaction.update(bookingRef, "status", Booking.STATUS_CANCELLED)

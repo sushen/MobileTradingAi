@@ -23,16 +23,31 @@ class LessonAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val lesson = lessons[position]
+        val isLocked = position > 0 && !lessons[position - 1].isCompleted
+
         holder.binding.apply {
             tvLessonTitle.text = lesson.title
-            tvLessonType.text = lesson.type.replaceFirstChar { it.uppercase() }
+            
+            // Fix: Remove listener before setting checked state to avoid recursion
+            cbLessonComplete.setOnCheckedChangeListener(null)
             cbLessonComplete.isChecked = lesson.isCompleted
+            
+            // Sequential locking UI
+            val alpha = if (isLocked) 0.5f else 1.0f
+            root.alpha = alpha
+            cbLessonComplete.isEnabled = !isLocked
+
+            tvLessonType.text = if (isLocked) "Locked" else "Available"
 
             cbLessonComplete.setOnCheckedChangeListener { _, isChecked ->
                 onCompleteToggle(lesson, isChecked)
             }
 
-            root.setOnClickListener { onLessonClick(lesson) }
+            root.setOnClickListener { 
+                if (!isLocked) {
+                    onLessonClick(lesson)
+                }
+            }
         }
     }
 

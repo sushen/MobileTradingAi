@@ -1,0 +1,24 @@
+Role: You are a senior Android + Firebase engineer working on a Kotlin Android app that must remain fully client-side.
+
+Task: Implement one coherent client-side Firestore contract for booking approval, seat management, classroom unlocks, and lesson/progress writes. Remove the dead Cloud Function approval path and align Android code plus Firestore rules with the real architecture.
+
+Context: The app is Kotlin Android with Firebase Auth and Firestore only. No backend server and no Cloud Functions are allowed. Admin is identified by the fixed email sushen.biswas.aga@gmail.com. Current problems: firestore.rules block normal users from writing lesson completion and progress-related fields; AdminPanelFragment already uses direct Firestore writes while PhaseRepository.approveBooking() still expects a missing approveBooking callable; seat counts are not updated on approve/cancel; classroom access depends on users/{uid}.unlockedPhases.
+
+Requirements:
+- Keep everything inside Android client code and Firestore rules only.
+- Do not introduce Cloud Functions, custom backend code, or custom auth claims.
+- Use the fixed admin email consistently in both client logic and Firestore rules.
+- Replace any stale callable/backend approval logic with direct Firestore transactions or batched writes.
+- Ensure approval, rejection, and cancellation keep booking status, unlockedPhases, and phases/{phaseId}.bookedSeats consistent.
+- Ensure normal users can complete lessons and persist only the minimum necessary progress data for the current app flow.
+- Tighten Firestore rules as much as possible while still supporting the existing product behavior.
+- Preserve current flows: seat request, admin review, classroom access after approval, lesson completion, progress updates.
+- Make the implementation cohesive and production-ready, not partial.
+
+Focus only on this task. Do not expand scope into advanced features, referrals, analytics, or UI redesign.
+
+Output format:
+1. A brief implementation plan in at most 8 lines.
+2. The exact files you will change.
+3. Patch-ready code changes or full final contents for each changed file.
+4. A short verification checklist covering booking approval, seat counts, classroom unlocks, lesson completion, and Firestore rules behavior.
