@@ -15,6 +15,7 @@ import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.databinding.FragmentAdminPanelBinding
 import com.shaplachottor.lab.databinding.ItemBookingRequestBinding
 import com.shaplachottor.lab.models.Booking
+import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.repositories.PhaseRepository
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -88,9 +89,34 @@ class AdminPanelFragment : Fragment() {
     private fun approveBooking(booking: Booking) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
+                val phase = phaseRepository.getPhaseById(booking.phaseId)
+                val user = appStore.getUser(booking.userId)
+                val displayName = user?.let { "${it.name} (${it.email})" } ?: "UID: ${booking.userId}"
+                
+                if (phase?.type == Phase.TYPE_PREMIUM) {
+                    com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Confirm Payment")
+                        .setMessage("Verify payment of ${phase.currency} ${phase.price} from $displayName for ${phase.title}?")
+                        .setPositiveButton("Payment Received") { _, _ ->
+                            performApproval(booking)
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                } else {
+                    performApproval(booking)
+                }
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun performApproval(booking: Booking) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
                 val success = phaseRepository.approveBooking(booking.bookingId)
                 if (success) {
-                    Toast.makeText(requireContext(), "Approved successfully", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Access granted successfully", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(requireContext(), "Approval failed", Toast.LENGTH_SHORT).show()
                 }
@@ -167,8 +193,23 @@ class AdminPanelFragment : Fragment() {
                     }
                 }
 
+                // Fetch and display phase details for pricing/type
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val phase = phaseRepository.getPhaseById(request.phaseId)
+                    if (phase != null && phase.type == Phase.TYPE_PREMIUM) {
+                        tvPaymentInfo.visibility = View.VISIBLE
+                        tvPaymentInfo.text = "Premium: ${phase.currency} ${phase.price}"
+                        if (request.status == Booking.STATUS_PENDING) {
+                            btnApprove.text = "Confirm Payment"
+                        }
+                    } else {
+                        tvPaymentInfo.visibility = View.GONE
+                        btnApprove.text = "Approve"
+                    }
+                }
+
                 tvPhaseId.text = "Phase: ${request.phaseId}\nStatus: ${request.status.uppercase()}"
-                tvContactInfo.text = "WhatsApp: ${request.whatsappNumber}"
+                tvContactInfo.text = "P: ${request.phoneNumber} | W: ${request.whatsappNumber}"
                 
                 if (request.status == Booking.STATUS_PENDING) {
                     tvExpiresAt.visibility = View.VISIBLE

@@ -1,0 +1,37 @@
+PROMPT 2 — SEQUENTIAL LEARNING ENFORCEMENT
+
+You are a senior Kotlin Android engineer.
+
+Treat context.md as ground truth.
+
+TASK:
+Enforce learning progression at repository and data-validation level, not just UI level.
+
+Current issue:
+Users may bypass lesson order or phase order through direct navigation or manual calls.
+
+Implement:
+- repository-level lesson sequence validation
+- cross-phase prerequisite validation
+- protection against out-of-order completion
+- validation inside updateLessonProgress()
+- validation inside classroom access paths
+
+Rules:
+- lesson N cannot complete unless lesson N-1 completed
+- phase N cannot unlock unless previous global phase completed
+- UI and repository logic must remain consistent
+
+Preserve:
+- existing architecture
+- ViewModels
+- Navigation
+- Firestore structure
+
+Do NOT redesign lesson architecture.
+
+Return ONLY:
+1. implementation plan
+2. files changed
+3. patch-ready diffs
+4. verification checklist

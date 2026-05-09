@@ -1,0 +1,34 @@
+PROMPT 6 — OFFLINE & CACHE STABILIZATION
+
+You are a senior Android Firebase engineer.
+
+Treat context.md as ground truth.
+
+TASK:
+Improve offline reliability and reconnect behavior.
+
+Implement:
+- Firestore offline persistence strategy
+- safe reconnect handling
+- cache-aware loading states
+- retry handling
+- protection against duplicate writes after reconnect
+
+Preserve:
+- existing repositories
+- existing Firestore schema
+- current architecture
+
+Avoid:
+- Room migration
+- backend additions
+- unnecessary abstractions
+
+Goal:
+Make the app resilient during unstable internet conditions.
+
+Return ONLY:
+1. implementation plan
+2. files changed
+3. patch-ready diffs
+4. verification checklist

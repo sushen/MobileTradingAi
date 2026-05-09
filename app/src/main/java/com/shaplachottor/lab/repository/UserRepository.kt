@@ -34,4 +34,8 @@ class UserRepository(
             }
         }
     }
+
+    suspend fun findUserByReferralCode(code: String): User? {
+        return appStore.getUserByReferralCode(code)
+    }
 }

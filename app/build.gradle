@@ -48,8 +48,8 @@ android {
         applicationId "com.shaplachottor.lab"
         minSdk 24
         targetSdk 35
-        versionCode 8
-        versionName "1.0.8"
+        versionCode 9
+        versionName "1.0.9"
 
         buildConfigField "String", "CURRENT_GIT_BRANCH", "\"${getGitBranch()}\""
         resValue "string", "git_branch_res", "${getGitBranch()}"

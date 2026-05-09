@@ -1,0 +1,37 @@
+PROMPT 5 — LESSON EXPERIENCE UPGRADE
+
+You are a senior Android UX engineer for education products.
+
+Treat context.md as ground truth.
+
+TASK:
+Improve classroom and lesson experience without redesigning the architecture.
+
+Improve:
+- classroom progression visuals
+- lesson completion UX
+- motivation/retention mechanics
+- progress indicators
+- locked/unlocked lesson states
+- completion celebrations
+- current-phase visibility
+
+Preserve:
+- existing fragments
+- navigation
+- repositories
+- Firestore structure
+
+Avoid:
+- unnecessary animations
+- overengineering
+- backend additions
+
+Goal:
+Make the learning experience feel premium and motivating.
+
+Return ONLY:
+1. implementation plan
+2. files changed
+3. patch-ready diffs
+4. verification checklist

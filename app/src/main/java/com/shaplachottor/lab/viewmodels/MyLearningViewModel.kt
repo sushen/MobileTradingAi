@@ -5,16 +5,15 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shaplachottor.lab.data.AppGraph
+import com.shaplachottor.lab.models.LearningJourneyProgress
 import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.models.User
 import com.shaplachottor.lab.repositories.PhaseRepository
-import com.shaplachottor.lab.repository.UserRepository
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class MyLearningViewModel(
-    private val phaseRepository: PhaseRepository = PhaseRepository(),
-    private val userRepository: UserRepository = UserRepository()
+    private val phaseRepository: PhaseRepository = PhaseRepository()
 ) : ViewModel() {
 
     private val _userData = MutableLiveData<User?>()
@@ -22,6 +21,9 @@ class MyLearningViewModel(
 
     private val _currentPhase = MutableLiveData<Phase?>()
     val currentPhase: LiveData<Phase?> = _currentPhase
+
+    private val _learningJourneyProgress = MutableLiveData<LearningJourneyProgress?>()
+    val learningJourneyProgress: LiveData<LearningJourneyProgress?> = _learningJourneyProgress
 
     private val _completedPhasesList = MutableLiveData<List<Phase>>()
     val completedPhasesList: LiveData<List<Phase>> = _completedPhasesList
@@ -34,22 +36,23 @@ class MyLearningViewModel(
                 // Use stream for real-time updates
                 AppGraph.appStore().getUserStream(userId).collectLatest { user ->
                     _userData.value = user
-                    
-                    if (user != null) {
-                        // Current phase is usually the last unlocked one that isn't completed
-                        val lastUnlockedPhaseId = user.unlockedPhases.lastOrNull()
-                        if (lastUnlockedPhaseId != null) {
-                            _currentPhase.value = phaseRepository.getPhaseById(lastUnlockedPhaseId)
-                        } else {
-                            _currentPhase.value = null
-                        }
 
-                        if (user.completedPhases.isNotEmpty()) {
-                            val phases = phaseRepository.getPhases()
-                            _completedPhasesList.value = phases.filter { user.completedPhases.contains(it.phaseId) }
-                        } else {
-                            _completedPhasesList.value = emptyList()
-                        }
+                    if (user != null) {
+                        val learningJourneyProgress = phaseRepository.getLearningJourneyProgress(user)
+                        _learningJourneyProgress.value = learningJourneyProgress
+                        _currentPhase.value = learningJourneyProgress?.currentPhaseProgress?.phase
+                        android.util.Log.d(
+                            "MyLearningViewModel",
+                            "My Learning progress loaded: activePhase=${learningJourneyProgress?.activePhaseId}, completedPhases=${learningJourneyProgress?.completedPhaseIds}, unlockedPhases=${learningJourneyProgress?.unlockedPhaseIds}, overallPercent=${learningJourneyProgress?.overallLearningProgress?.percent}"
+                        )
+
+                        val phases = phaseRepository.getPhases()
+                        val completedPhaseIds = learningJourneyProgress?.completedPhaseIds.orEmpty()
+                        _completedPhasesList.value = phases.filter { completedPhaseIds.contains(it.phaseId) }
+                    } else {
+                        _learningJourneyProgress.value = null
+                        _currentPhase.value = null
+                        _completedPhasesList.value = emptyList()
                     }
                 }
             } catch (e: Exception) {

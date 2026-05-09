@@ -39,6 +39,7 @@
     <color name="accent">@color/soft_gold</color>
     <color name="text_secondary">@color/text_medium</color>
     <color name="primary_variant">@color/shapla_green_dark</color>
+    <color name="outline">#79747E</color>
     <color name="outline_variant">@color/border_light</color>
 
     <!-- Standard Colors -->

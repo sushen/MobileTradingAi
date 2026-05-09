@@ -38,7 +38,9 @@ class PrivacyPolicyActivity : AppCompatActivity() {
             - Account Data: When you sign in via Google, we receive your name, email address, and profile picture.
             - Contact Information: For booking a classroom seat or training phase, we collect your Phone Number and WhatsApp Number for verification purposes.
             - Learning Progress: We store your learning progress, including unlocked modules and completed lessons, to provide a continuous educational experience.
-            - Device Information: We may collect limited technical information such as device model and operating system version strictly for app functionality, debugging, and performance optimization. We do not use this data for tracking or advertising purposes.
+            - Device Information: We may collect limited technical information such as device model and operating system version strictly for app functionality, debugging, and performance optimization.
+            
+            - Analytics and Advertising Identifiers: We use the Meta (Facebook) SDK to collect app events and advertiser IDs (GAID/AAID) to understand app performance and optimize our growth.
 
             ---
 
@@ -117,8 +119,8 @@ class PrivacyPolicyActivity : AppCompatActivity() {
 
             ---
 
-            ## 12. No Advertising or Tracking
-            We do not display ads and do not use third-party tracking technologies for advertising purposes.
+            ## 12. Advertising and Tracking
+            We do not display third-party ads inside the app. However, we use the Meta SDK for attribution and analytics to measure the effectiveness of our own lab's outreach.
         """.trimIndent()
 
         binding.tvPrivacyContent.text = policyText

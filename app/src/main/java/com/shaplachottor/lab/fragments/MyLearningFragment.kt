@@ -35,20 +35,27 @@ class MyLearningFragment : Fragment() {
     }
 
     private fun setupObservers() {
-        viewModel.userData.observe(viewLifecycleOwner) { user ->
-            if (user != null) {
-                binding.tvTotalProgress.text = "${user.progress}%"
-                binding.totalProgressIndicator.setProgress(user.progress, true)
-            }
-        }
+        viewModel.learningJourneyProgress.observe(viewLifecycleOwner) { learningJourneyProgress ->
+            val overallPercent = learningJourneyProgress?.overallLearningProgress?.percent ?: 0
+            binding.tvTotalProgress.text = "${overallPercent}%"
+            binding.totalProgressIndicator.setProgress(overallPercent, true)
 
-        viewModel.currentPhase.observe(viewLifecycleOwner) { phase ->
-            if (phase != null) {
+            val currentPhaseProgress = learningJourneyProgress?.currentPhaseProgress
+            if (currentPhaseProgress != null) {
+                val phase = currentPhaseProgress.phase
+                val progress = currentPhaseProgress.progress
                 binding.cardCurrentPhase.visibility = View.VISIBLE
                 binding.tvNoActivePhase.visibility = View.GONE
                 binding.tvCurrentPhaseTitle.text = "Phase ${phase.order}: ${phase.title}"
                 binding.tvCurrentPhaseDesc.text = phase.description
-                
+                binding.tvCurrentPhaseProgressPercent.text = "${progress.percent}%"
+                binding.currentPhaseProgressIndicator.setProgress(progress.percent, true)
+                binding.tvCurrentPhaseLessonSummary.text = getString(
+                    R.string.lesson_progress_summary,
+                    progress.completedLessons,
+                    progress.totalLessons
+                )
+
                 binding.btnContinue.setOnClickListener {
                     val bundle = Bundle().apply { putString("phaseId", phase.phaseId) }
                     findNavController().navigate(R.id.action_myLearningFragment_to_classroomFragment, bundle)
@@ -67,6 +74,7 @@ class MyLearningFragment : Fragment() {
                 val adapter = PhaseAdapter(
                     phases = completedPhases,
                     userUnlockedPhases = completedPhases.map { it.phaseId },
+                    completedPhaseIds = completedPhases.map { it.phaseId },
                     bookingStates = emptyMap()
                 ) { phase ->
                     val bundle = Bundle().apply { putString("phaseId", phase.phaseId) }

@@ -1,0 +1,33 @@
+PROMPT 3 — RELEASE READINESS CLEANUP
+
+You are a senior Android release engineer.
+
+Treat context.md as ground truth.
+
+TASK:
+Prepare the app for stable public release.
+
+Fix ONLY:
+- POST_NOTIFICATIONS manifest issue
+- gradlew.bat reliability
+- compileSdk warnings where possible
+- privacy policy mismatch with Meta SDK tracking
+- outdated setup docs/package references
+- Meta SDK production readiness
+- missing Android 13 notification handling
+
+Do NOT:
+- redesign architecture
+- modify business logic
+- change UI unnecessarily
+
+Ensure:
+- debug and release builds work
+- notifications work correctly
+- privacy disclosures match runtime behavior
+
+Return ONLY:
+1. implementation plan
+2. files changed
+3. patch-ready diffs
+4. verification checklist

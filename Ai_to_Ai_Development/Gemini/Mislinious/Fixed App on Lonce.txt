@@ -1,0 +1,98 @@
+You are a senior Android engineer working inside Android Studio.
+
+The app installs successfully, opens the Splash screen, and then crashes before navigating to LoginActivity.
+
+Expected behavior:
+- App launches
+- SplashActivity initializes safely
+- If user is NOT authenticated → navigate to LoginActivity
+- If user IS authenticated → navigate to MainActivity
+- App must NEVER crash during splash routing
+
+Your task:
+1. Find the exact crash cause using:
+   - Logcat
+   - stack trace
+   - SplashActivity
+   - TradingAIApplication
+   - Firebase initialization
+   - Navigation logic
+   - AndroidManifest.xml
+   - LoginActivity registration
+   - MainActivity registration
+
+2. Trace the complete startup flow:
+   - Application launch
+   - SplashActivity onCreate()
+   - FirebaseAuth initialization
+   - Firestore initialization
+   - Meta SDK initialization
+   - Intent navigation
+   - Activity lifecycle
+
+3. Check for common launch crash causes:
+   - NullPointerException
+   - FirebaseApp not initialized
+   - Missing google-services.json
+   - ActivityNotFoundException
+   - Incorrect manifest declarations
+   - Theme/resource crash
+   - ViewBinding crash
+   - Missing INTERNET permission
+   - Safe Args/navigation issues
+   - Kotlin initialization crash
+   - Material3 theme incompatibility
+   - Android 14/15 exported activity issue
+
+4. Verify these activities exist and are properly declared:
+   - SplashActivity
+   - LoginActivity
+   - MainActivity
+   - RegisterActivity
+   - ForgotPasswordActivity
+
+5. Verify AndroidManifest.xml:
+   - launcher activity
+   - exported=true where required
+   - application class
+   - internet permission
+   - firebase configuration
+   - metadata entries
+
+6. Add defensive protection:
+   - try/catch around splash routing
+   - detailed Log.e() logging
+   - null-safe Firebase checks
+   - fallback navigation to LoginActivity if auth fails
+
+7. Fix the issue directly in code.
+
+8. After fixing:
+   - explain ROOT CAUSE
+   - explain WHY it crashed
+   - explain WHAT was changed
+   - list ALL modified files
+   - verify startup flow step-by-step
+
+Important:
+- Do NOT redesign the architecture
+- Do NOT rewrite unrelated code
+- Only stabilize the launch flow
+- Preserve existing MVVM + Repository structure
+- Keep XML/ViewBinding architecture intact
+- Maintain Firebase + Firestore integration
+- Maintain Shapla Chottor design system
+
+Project context:
+This is an Android Kotlin app using:
+- MVVM
+- Firebase Auth
+- Firestore
+- Material 3
+- Navigation Component
+- ViewBinding
+- Google Sign-In
+- Meta SDK
+- SplashActivity routes users to LoginActivity or MainActivity
+
+The crash happens immediately AFTER splash screen appears.

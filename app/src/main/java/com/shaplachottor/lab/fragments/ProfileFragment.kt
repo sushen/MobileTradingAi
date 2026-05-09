@@ -62,11 +62,38 @@ class ProfileFragment : Fragment() {
             user?.let {
                 binding.tvProfileName.text = it.name
                 binding.tvProfileEmail.text = it.email
+                binding.tvReferralCode.text = it.referralCode
+                
                 if (!it.photoUrl.isNullOrEmpty()) {
                     com.bumptech.glide.Glide.with(this@ProfileFragment)
                         .load(it.photoUrl)
                         .into(binding.ivProfilePicture)
                 }
+
+                binding.btnShareReferral.setOnClickListener { _ ->
+                    shareReferralCode(it.referralCode)
+                }
+
+                loadAffiliateStats(it.id)
+            }
+        }
+    }
+
+    private fun shareReferralCode(code: String) {
+        val shareText = "Join me in the Trading AI Lab! Use my referral code $code to start your research journey: https://shaplachottor.lab/join"
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, shareText)
+        }
+        startActivity(Intent.createChooser(intent, "Share Referral Code"))
+    }
+
+    private fun loadAffiliateStats(userId: String) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val stats = AppGraph.appStore().getAffiliateStats(userId)
+            stats?.let {
+                binding.tvTotalInvites.text = (it["totalInvites"] ?: 0).toString()
+                binding.tvConversions.text = (it["conversions"] ?: 0).toString()
             }
         }
     }

@@ -1,0 +1,33 @@
+PROMPT 9 — ADVANCED FEATURE GATING
+
+You are a senior Android access-control engineer.
+
+Treat context.md as ground truth.
+
+TASK:
+Implement real feature gating for:
+- Install
+- Invest
+- Affiliate
+
+Use:
+- unlockedFeatures
+- progress thresholds
+- phase completion
+- approval state
+
+Ensure:
+- locked users cannot bypass access
+- UI and repository logic remain consistent
+- gating works after app restart
+- feature unlocks update reactively
+
+Do NOT:
+- redesign advanced screens
+- add payment systems yet
+
+Return ONLY:
+1. implementation plan
+2. files changed
+3. patch-ready diffs
+4. verification checklist

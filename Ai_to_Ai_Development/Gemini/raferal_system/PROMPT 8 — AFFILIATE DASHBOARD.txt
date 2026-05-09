@@ -1,0 +1,34 @@
+PROMPT 8 — AFFILIATE DASHBOARD
+
+You are a senior Android dashboard engineer.
+
+Treat context.md as ground truth.
+
+TASK:
+Build the complete affiliate dashboard using existing referral and affiliate Firestore data.
+
+Implement:
+- total invites
+- total conversions
+- referral progress
+- affiliate overview cards
+- referral history list
+- conversion indicators
+
+Preserve:
+- existing architecture
+- current repositories
+- current navigation
+
+Avoid:
+- backend additions
+- analytics integrations
+
+Goal:
+Create a clean, production-quality affiliate experience fully inside the app.
+
+Return ONLY:
+1. implementation plan
+2. files changed
+3. patch-ready diffs
+4. verification checklist

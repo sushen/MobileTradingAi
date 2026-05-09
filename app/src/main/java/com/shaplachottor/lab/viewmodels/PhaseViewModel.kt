@@ -10,7 +10,24 @@ import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.repositories.PhaseRepository
 import kotlinx.coroutines.launch
 
-class PhaseViewModel(private val repository: PhaseRepository) : ViewModel() {
+class PhaseViewModel(
+    private val repository: PhaseRepository,
+    private val networkMonitor: com.shaplachottor.lab.util.NetworkMonitor = com.shaplachottor.lab.data.AppGraph.networkMonitor()
+) : ViewModel() {
+
+    private val _isOnline = MutableLiveData<Boolean>(true)
+    val isOnline: LiveData<Boolean> = _isOnline
+
+    init {
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                _isOnline.value = online
+                if (online) {
+                    loadPhases()
+                }
+            }
+        }
+    }
 
     private val _allPhases = MutableLiveData<List<Phase>>()
     private val _filteredPhases = MutableLiveData<List<Phase>>()
@@ -37,8 +54,9 @@ class PhaseViewModel(private val repository: PhaseRepository) : ViewModel() {
     fun filterByLevel(level: String) {
         _selectedLevel = level
         val all = _allPhases.value ?: return
-        _filteredPhases.value = all.filter { it.level.equals(level, ignoreCase = true) }
-            .sortedBy { it.order }
+        _filteredPhases.value = all.filter { 
+            it.level.equals(level, ignoreCase = true) && it.isVisible
+        }.sortedBy { it.order }
     }
 
     fun requestSeat(phase: Phase, phoneNumber: String, whatsappNumber: String) {

@@ -1,0 +1,225 @@
+You are a senior Android engineer working inside Android Studio.
+
+IMPORTANT:
+Before making ANY changes, first read and understand:
+- context.md
+- README.md
+- color-context.md
+
+These files contain:
+- current app architecture
+- phase system behavior
+- progress expectations
+- feature gating rules
+- existing implementation state
+- future scalability expectations
+- design system constraints
+
+You MUST align your fix with the existing project direction described in those files.
+
+-----------------------------------
+BUG DESCRIPTION
+-----------------------------------
+
+The app has a progress-tracking logic problem.
+
+Current behavior:
+- Lesson completion works
+- Sequential lesson unlocking works
+- Classroom UI updates partially
+- BUT progress logic is conceptually incorrect
+
+The app currently has:
+- 6 phases total
+- Only some lessons implemented
+- Other phases are partially built or empty
+- More lessons/phases will be added later
+
+The progress system MUST support future expansion dynamically.
+
+-----------------------------------
+IMPORTANT PRODUCT UNDERSTANDING
+-----------------------------------
+
+This app is NOT tracking:
+- static lesson counts
+- hardcoded percentages
+- temporary demo values
+
+The system MUST dynamically adapt when:
+- new lessons are added
+- lessons are removed
+- phases gain more content
+- future phases become implemented
+
+The app must NEVER require manual recalculation updates in code when content grows.
+
+-----------------------------------
+EXPECTED PROGRESS MODEL
+-----------------------------------
+
+There are TWO DIFFERENT TYPES OF PROGRESS:
+
+1. PHASE PROGRESS
+Tracks lesson completion INSIDE a single phase.
+
+Example:
+Phase 1 has 4 lessons.
+1 completed = 25%
+2 completed = 50%
+
+This MUST be dynamically calculated from:
+completedLessons / totalLessonsInThatPhase
+
+------------------------------------------------
+
+2. OVERALL APP PROGRESS
+Tracks progress across the ENTIRE learning journey.
+
+BUT:
+Future phases may not yet contain lessons.
+
+Therefore:
+Overall progress must NOT unfairly punish the user because future content is not implemented yet.
+
+The calculation MUST dynamically account for:
+- only currently implemented lessons/phases
+OR
+- a scalable weighted model
+
+You must determine the BEST scalable architecture based on the current repository structure and context.md guidance.
+
+-----------------------------------
+YOUR TASK
+-----------------------------------
+
+1. Read and understand:
+- context.md
+- README.md
+- color-context.md
+
+2. Trace the FULL progress flow:
+- lesson completion
+- repository update
+- Firestore writes
+- phaseProgress updates
+- overall progress updates
+- UI rendering
+- RecyclerView updates
+- ViewModel state flow
+- Firestore cache synchronization
+
+3. Identify ALL logic flaws in:
+- phase progress calculation
+- overall progress calculation
+- future scalability
+- hardcoded assumptions
+- empty phase handling
+- partially implemented phase handling
+
+4. Design a DYNAMIC progress system.
+
+The system MUST:
+- auto-adjust when new lessons are added
+- auto-adjust when new phases become available
+- avoid hardcoded percentages
+- avoid static lesson totals
+- support future content growth
+- support incomplete development states
+
+5. Verify:
+- sequential unlock logic still works
+- progress bars update correctly
+- classroom percentage updates correctly
+- overall user progress remains accurate
+- advanced feature gating still behaves correctly
+
+6. Specifically inspect for:
+- integer division bugs
+- stale cached UI state
+- async Firestore race conditions
+- incorrect Flow/LiveData observation
+- mismatch between unlocked phases vs completed lessons
+- phase weighting inconsistencies
+
+7. Add detailed debugging logs:
+- total lessons
+- completed lessons
+- phase percentage
+- overall percentage
+- implemented phase count
+- Firestore values
+- UI rendered values
+
+8. Fix the issue directly in code.
+
+-----------------------------------
+IMPORTANT ENGINEERING RULES
+-----------------------------------
+
+DO NOT:
+- redesign the whole architecture
+- rewrite unrelated systems
+- remove MVVM structure
+- remove Repository pattern
+- break Firestore schema
+- hardcode percentages
+- hardcode lesson totals
+
+DO:
+- preserve existing architecture
+- preserve sequential lesson logic
+- preserve feature gating
+- preserve Firestore integration
+- make the system scalable
+- make the system future-proof
+
+-----------------------------------
+AFTER FIXING
+-----------------------------------
+
+Explain:
+1. ROOT CAUSE
+2. WHY the previous logic failed
+3. HOW the new dynamic system works
+4. HOW future lessons/phases will auto-adjust
+5. WHAT files changed
+6. HOW progress is now calculated
+
+Then verify with examples:
+
+Example A:
+Phase 1 = 4 lessons
+1 completed = 25%
+
+Example B:
+Later Phase 1 becomes 8 lessons
+2 completed = 25%
+
+Example C:
+Phase 2 currently empty
+System should not break
+
+Example D:
+Future lessons added later
+Progress recalculates automatically
+
+-----------------------------------
+PROJECT CONTEXT
+-----------------------------------
+
+This is a Kotlin Android app using:
+- MVVM
+- Repository Pattern
+- Firebase Auth
+- Firestore
+- Material 3
+- XML/ViewBinding
+- Sequential learning progression
+- Premium cohort gating
+- Dynamic lesson providers
+- PhaseRepository
+- ProgressCalculator
+- FirestoreAppStore
+
+The fix must align with the architecture described in context.md.

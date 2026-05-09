@@ -1,0 +1,37 @@
+PROMPT 7 — REFERRAL USER FLOW
+
+You are a senior Android growth-system engineer.
+
+Treat context.md as ground truth.
+
+TASK:
+Build the complete user-facing referral flow using the existing Firestore referral scaffolding.
+
+Implement:
+- referral code entry during onboarding
+- referral code validation
+- invite/share flow
+- referral attribution
+- conversion tracking
+- referral persistence
+
+Use existing:
+- referralEvents
+- affiliateStats
+- referralCode fields
+
+Ensure:
+- self-referral blocked
+- duplicate referral blocked
+- conversion triggers only once
+- Phase 1 completion triggers conversion correctly
+
+Do NOT:
+- add backend services
+- redesign authentication
+
+Return ONLY:
+1. implementation plan
+2. files changed
+3. patch-ready diffs
+4. verification checklist

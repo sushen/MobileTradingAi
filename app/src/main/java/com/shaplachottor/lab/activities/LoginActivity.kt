@@ -56,6 +56,14 @@ class LoginActivity : AppCompatActivity() {
             val signInIntent = googleSignInClient.signInIntent
             googleSignInLauncher.launch(signInIntent)
         }
+
+        binding.tvRegister.setOnClickListener {
+            startActivity(Intent(this, RegisterActivity::class.java))
+        }
+
+        binding.tvForgotPassword.setOnClickListener {
+            startActivity(Intent(this, ForgotPasswordActivity::class.java))
+        }
     }
 
     private fun setupGoogleSignIn() {
@@ -74,13 +82,31 @@ class LoginActivity : AppCompatActivity() {
                 val authResult = FirebaseAuth.getInstance().signInWithCredential(credential).await()
                 val firebaseUser = authResult.user
                 if (firebaseUser != null) {
+                    val referralCodeInput = binding.etReferralCode.text.toString().trim()
+                    
                     val user = User(
                         id = firebaseUser.uid,
                         email = firebaseUser.email ?: "",
                         name = firebaseUser.displayName ?: "",
                         photoUrl = firebaseUser.photoUrl?.toString() ?: ""
                     )
-                    userRepository.saveUser(user)
+                    
+                    // Validate referral code if provided
+                    if (referralCodeInput.isNotEmpty()) {
+                        val referrer = userRepository.findUserByReferralCode(referralCodeInput)
+                        if (referrer != null && referrer.id != user.id) {
+                            userRepository.saveUser(user.copy(referredBy = referrer.id))
+                        } else {
+                            // Proceed without referral if invalid or self-referral
+                            userRepository.saveUser(user)
+                            if (referralCodeInput.isNotEmpty()) {
+                                Toast.makeText(this@LoginActivity, "Invalid referral code", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
+                        userRepository.saveUser(user)
+                    }
+
                     startActivity(Intent(this@LoginActivity, MainActivity::class.java))
                     finish()
                 }

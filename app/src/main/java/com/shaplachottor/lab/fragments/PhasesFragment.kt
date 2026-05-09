@@ -9,14 +9,16 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.shaplachottor.lab.adapters.PhaseAdapter
 import com.shaplachottor.lab.databinding.DialogBookingRequestBinding
 import com.shaplachottor.lab.databinding.FragmentPhasesBinding
 import com.shaplachottor.lab.models.Booking
 import com.shaplachottor.lab.models.BookingRequestOutcome
+import com.shaplachottor.lab.models.LearningJourneyProgress
 import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.models.User
 import com.shaplachottor.lab.repository.UserRepository
@@ -32,9 +34,13 @@ class PhasesFragment : Fragment() {
     
     private lateinit var viewModel: PhaseViewModel
     private val userRepository = UserRepository()
+    private val phaseRepository = PhaseRepository()
     private var currentUser: User? = null
+    private var learningJourneyProgress: LearningJourneyProgress? = null
+    private var allPhases: List<Phase> = emptyList()
     private var visiblePhases: List<Phase> = emptyList()
     private var currentBookingStates: Map<String, Booking> = emptyMap()
+    private val args: PhasesFragmentArgs by navArgs()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -52,6 +58,26 @@ class PhasesFragment : Fragment() {
         binding.rvPhases.layoutManager = LinearLayoutManager(context)
         fetchUserAndPhases()
         observeViewModel()
+        
+        handlePassedPhaseId()
+    }
+
+    private fun handlePassedPhaseId() {
+        val targetPhaseId = args.phaseId ?: return
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Ensure phases are loaded
+            val phases = viewModel.phases.value ?: phaseRepository.getPhases()
+            val targetPhase = phases.find { it.phaseId == targetPhaseId }
+            targetPhase?.let { phase ->
+                val tabIndex = when (phase.level) {
+                    "Beginner" -> 0
+                    "Intermediate" -> 1
+                    "Advanced" -> 2
+                    else -> 0
+                }
+                binding.tabLayoutLevels.getTabAt(tabIndex)?.select()
+            }
+        }
     }
 
     override fun onResume() {
@@ -73,15 +99,13 @@ class PhasesFragment : Fragment() {
             override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
         })
 
-        // Select the first tab explicitly to trigger initial filter
         beginnerTab.select()
     }
 
     private fun setupViewModel() {
-        val repository = PhaseRepository()
         val factory = object : ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return PhaseViewModel(repository) as T
+                return PhaseViewModel(phaseRepository) as T
             }
         }
         viewModel = ViewModelProvider(this, factory)[PhaseViewModel::class.java]
@@ -90,7 +114,10 @@ class PhasesFragment : Fragment() {
     private fun fetchUserAndPhases() {
         viewLifecycleOwner.lifecycleScope.launch {
             currentUser = userRepository.getCurrentUserOrNull()
+            allPhases = phaseRepository.getPhases().sortedBy { it.order }
+            learningJourneyProgress = phaseRepository.getLearningJourneyProgress(currentUser)
             viewModel.loadPhases()
+            updateProgressSummary()
             renderPhases()
         }
     }
@@ -150,31 +177,61 @@ class PhasesFragment : Fragment() {
                 BookingRequestOutcome.FAILED -> {
                     Toast.makeText(context, "Booking request failed. Please try again.", Toast.LENGTH_SHORT).show()
                 }
+
+                BookingRequestOutcome.PREREQUISITE_NOT_MET -> {
+                    Toast.makeText(
+                        context,
+                        "Please complete the previous phase before booking this one.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
     }
 
     private fun updateProgressSummary() {
-        val allPhases = viewModel.phases.value ?: emptyList()
-        val unlockedCount = currentUser?.unlockedPhases?.size ?: 0
-        
         binding.tvCurrentTrack.text = "Current Track: ${viewModel.selectedLevel}"
-        binding.tvOverallProgress.text = "Progress: $unlockedCount / ${allPhases.size}"
-        
-        val nextPhase = allPhases.sortedBy { it.order }.firstOrNull { 
-            currentUser?.unlockedPhases?.contains(it.phaseId) != true 
+
+        val overallProgress = learningJourneyProgress?.overallLearningProgress
+        if (overallProgress != null) {
+            binding.tvOverallProgress.text =
+                "Overall Learning: ${overallProgress.percent}% • ${overallProgress.completedPhases}/${overallProgress.totalPhases} phases complete"
+        } else {
+            binding.tvOverallProgress.text = "Overall Learning: 0%"
         }
-        binding.tvNextPhase.text = "Next Phase: ${nextPhase?.title ?: "Completed"}"
+
+        val activePhase = learningJourneyProgress?.currentPhaseProgress?.phase
+        val activePhasePercent = learningJourneyProgress?.currentPhaseProgress?.progress?.percent
+        val nextPhase = allPhases.firstOrNull { phase ->
+            !learningJourneyProgress?.completedPhaseIds.orEmpty().contains(phase.phaseId) &&
+                !currentUser?.unlockedPhases.orEmpty().contains(phase.phaseId) &&
+                phase.type != Phase.TYPE_FREE
+        }
+
+        binding.tvNextPhase.text = when {
+            activePhase != null && activePhasePercent != null ->
+                "Active Phase: ${activePhase.title} ($activePhasePercent%)"
+            nextPhase != null ->
+                "Next Phase: ${nextPhase.title}"
+            overallProgress?.percent == 100 ->
+                "Next Phase: Journey Completed"
+            else ->
+                "Next Phase: Awaiting Unlock"
+        }
+
+        android.util.Log.d(
+            "PhasesFragment",
+            "Progress summary updated: activePhase=${learningJourneyProgress?.activePhaseId}, completedPhases=${learningJourneyProgress?.completedPhaseIds}, unlockedPhases=${currentUser?.unlockedPhases}, overallPercent=${learningJourneyProgress?.overallLearningProgress?.percent}"
+        )
     }
 
     private fun renderPhases() {
-        if (_binding == null) {
-            return
-        }
+        if (_binding == null) return
 
         binding.rvPhases.adapter = PhaseAdapter(
             visiblePhases,
             currentUser?.unlockedPhases ?: emptyList(),
+            learningJourneyProgress?.completedPhaseIds.orEmpty(),
             currentBookingStates
         ) { phase ->
             handlePhaseClick(phase)
@@ -182,7 +239,7 @@ class PhasesFragment : Fragment() {
     }
 
     private fun handlePhaseClick(phase: Phase) {
-        if (currentUser?.unlockedPhases?.contains(phase.phaseId) == true) {
+        if (phase.type == Phase.TYPE_FREE || currentUser?.unlockedPhases?.contains(phase.phaseId) == true) {
             val action = PhasesFragmentDirections.actionPhasesFragmentToClassroomFragment(phase.phaseId)
             findNavController().navigate(action)
             return

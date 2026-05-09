@@ -1,0 +1,38 @@
+PROMPT 4 — STRUCTURED LESSON EXPANSION
+
+You are a senior Android education-platform engineer.
+
+Treat context.md as ground truth.
+
+TASK:
+Expand the structured lesson-detail system from Phase 1 into phases 2–6.
+
+Requirements:
+- each phase must contain real structured lessons
+- use LessonContentBlock types:
+  - CONCEPT
+  - EXAMPLE
+  - EXERCISE
+  - REFLECTION
+- maintain sequential progression
+- preserve existing lesson-detail architecture
+
+Do NOT:
+- redesign navigation
+- change ViewModel architecture
+- migrate lessons to backend CMS
+
+Implement:
+- meaningful placeholder educational content
+- consistent lesson ordering
+- complete phase coverage
+
+Ensure:
+- lesson detail screens are no longer blank
+- progression remains compatible
+
+Return ONLY:
+1. implementation plan
+2. files changed
+3. full lesson content additions
+4. verification checklist

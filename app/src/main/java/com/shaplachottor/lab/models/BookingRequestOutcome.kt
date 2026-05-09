@@ -6,5 +6,6 @@ enum class BookingRequestOutcome {
     ALREADY_APPROVED,
     NO_SEATS_AVAILABLE,
     INVALID_CONTACT_INFO,
+    PREREQUISITE_NOT_MET,
     FAILED
 }

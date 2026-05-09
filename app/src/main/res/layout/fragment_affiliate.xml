@@ -1,134 +1,208 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <LinearLayout
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:background="@color/background">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Affiliate Dashboard"
-            android:textColor="@color/on_background"
-            android:textSize="24sp"
-            android:textStyle="bold" />
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Affiliate Dashboard"
+            app:titleCentered="true" />
 
-        <com.google.android.material.card.MaterialCardView
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            app:cardBackgroundColor="@color/surface"
-            app:cardCornerRadius="12dp">
+            android:orientation="vertical"
+            android:padding="16dp">
 
-            <LinearLayout
+            <!-- Stats Overview -->
+            <GridLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:alignmentMode="alignMargins"
+                android:columnCount="2"
+                android:rowCount="1">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Your Referral Link"
-                    android:textColor="@color/text_secondary" />
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="2dp">
 
-                <TextView
-                    android:id="@+id/tv_referral_link"
-                    android:layout_width="match_parent"
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Total Invites"
+                            android:textAppearance="?attr/textAppearanceLabelLarge"
+                            android:textColor="@color/text_secondary" />
+
+                        <TextView
+                            android:id="@+id/tv_total_invites"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textAppearance="?attr/textAppearanceHeadlineMedium"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="https://tradingai.app/ref/user123"
-                    android:textColor="@color/accent"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="2dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_copy_link"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="end"
-                    android:text="Copy Link" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:padding="16dp">
 
-        <GridLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:columnCount="2"
-            android:rowCount="1">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Conversions"
+                            android:textAppearance="?attr/textAppearanceLabelLarge"
+                            android:textColor="@color/text_secondary" />
 
+                        <TextView
+                            android:id="@+id/tv_total_conversions"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textAppearance="?attr/textAppearanceHeadlineMedium"
+                            android:textColor="@color/accent"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </GridLayout>
+
+            <!-- Referral Link Sharing -->
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_columnWeight="1"
-                android:layout_marginEnd="8dp"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="12dp">
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/border_light"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center"
                     android:orientation="vertical"
                     android:padding="16dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Total Referrals"
-                        android:textColor="@color/text_secondary" />
+                        android:text="Your Partner Code"
+                        android:textAppearance="?attr/textAppearanceTitleSmall" />
 
-                    <TextView
-                        android:id="@+id/tv_total_referrals"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textColor="@color/on_background"
-                        android:textSize="24sp"
-                        android:textStyle="bold" />
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_status_badge"
+                        android:backgroundTint="#F5F5F5"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:id="@+id/tv_referral_code"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:text="LOADING..."
+                            android:textAppearance="?attr/textAppearanceTitleMedium"
+                            android:textStyle="bold" />
+
+                        <ImageButton
+                            android:id="@+id/btn_copy_code"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:src="@drawable/ic_copy"
+                            app:tint="@color/accent" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_share"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="Share Vision"
+                        app:icon="@drawable/ic_learning_colorful"
+                        app:iconGravity="textStart" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="0dp"
+            <!-- Recent History -->
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_columnWeight="1"
-                android:layout_marginStart="8dp"
-                app:cardBackgroundColor="@color/surface"
-                app:cardCornerRadius="12dp">
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="12dp"
+                android:text="Referral History"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textStyle="bold" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_history"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                tools:listitem="@layout/item_referral" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Earned"
-                        android:textColor="@color/text_secondary" />
+            <TextView
+                android:id="@+id/tv_empty_history"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:padding="32dp"
+                android:text="No referrals yet. Share your code to start growing!"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="@color/text_secondary"
+                android:visibility="gone" />
 
-                    <TextView
-                        android:id="@+id/tv_commission_earned"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="$0.00"
-                        android:textColor="@color/accent"
-                        android:textSize="24sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </GridLayout>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
-    </LinearLayout>
-</ScrollView>
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

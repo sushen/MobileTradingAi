@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface"
+    android:background="@color/surface"
     android:gravity="center"
     android:orientation="vertical"
     android:padding="32dp">
@@ -21,7 +21,7 @@
         android:layout_height="wrap_content"
         android:text="@string/app_name"
         android:textAppearance="?attr/textAppearanceHeadlineLarge"
-        android:textColor="?attr/colorPrimary"
+        android:textColor="@color/primary"
         android:textStyle="bold" />
 
     <TextView
@@ -29,23 +29,59 @@
         android:layout_height="wrap_content"
         android:text="@string/tagline"
         android:textAppearance="?attr/textAppearanceBodyMedium"
-        android:textColor="?attr/colorSecondary"
+        android:textColor="@color/secondary"
         android:layout_marginTop="8dp" />
 
     <Space
         android:layout_width="match_parent"
         android:layout_height="32dp" />
 
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_referral_code"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:hint="Referral Code (Optional)">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_referral_code"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textCapCharacters"
+            android:maxLength="6" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <TextView
+        android:id="@+id/tv_forgot_password"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Forgot Password?"
+        android:textColor="@color/secondary"
+        android:clickable="true"
+        android:focusable="true" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_google_login"
         style="@style/Widget.Material3.Button.TonalButton"
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="16dp"
         android:text="Sign in with Google"
         android:textAllCaps="false"
         app:icon="@drawable/ic_google_logo"
         app:iconTint="@null" />
+
+    <TextView
+        android:id="@+id/tv_register"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Don't have an account? Register"
+        android:textColor="@color/primary"
+        android:clickable="true"
+        android:focusable="true" />
 
     <com.google.android.material.progressindicator.CircularProgressIndicator
         android:id="@+id/loading_progress"
@@ -61,7 +97,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
         android:textAppearance="?attr/textAppearanceLabelSmall"
-        android:textColor="?attr/colorSecondary" />
+        android:textColor="@color/secondary" />
 
     <TextView
         android:id="@+id/tv_branch_info"
@@ -69,6 +105,6 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:textAppearance="?attr/textAppearanceLabelSmall"
-        android:textColor="?attr/colorSecondary" />
+        android:textColor="@color/secondary" />
 
 </LinearLayout>

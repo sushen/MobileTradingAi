@@ -20,4 +20,16 @@
     <!-- Facebook SDK -->
     <string name="facebook_app_id">1603183510975171</string>
     <string name="facebook_client_token">fcc2c7f25cd0f8cb65b3cb7db674ef7a</string>
+
+    <!-- Classroom & Lessons -->
+    <string name="classroom_progress">Classroom Progress</string>
+    <string name="current_phase_progress">Current Phase Progress</string>
+    <string name="phase_progress">Phase Progress</string>
+    <string name="lesson_progress_summary">%1$d of %2$d lessons complete</string>
+    <string name="lesson_step_format">Step %1$d of %2$d</string>
+    <string name="lesson_completed_feedback">Knowledge Locked! Lesson complete.</string>
+    <string name="phase_completed_title">Phase Completed! 🎉</string>
+    <string name="phase_completed_message">Excellent work! You\'ve mastered this phase. Your progress has been updated, and the next challenge is waiting for you in the catalog.</string>
+    <string name="return_to_phases">Return to Phases</string>
+    <string name="stay_here">Stay Here</string>
 </resources>

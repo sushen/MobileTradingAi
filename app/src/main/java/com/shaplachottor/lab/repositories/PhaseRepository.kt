@@ -8,18 +8,66 @@ import com.shaplachottor.lab.models.AdvancedFeatures
 import com.shaplachottor.lab.models.Booking
 import com.shaplachottor.lab.models.BookingRequestOutcome
 import com.shaplachottor.lab.models.BookingRequestResult
+import com.shaplachottor.lab.models.CurrentPhaseProgress
 import com.shaplachottor.lab.models.Lesson
+import com.shaplachottor.lab.models.LearningJourneyProgress
+import com.shaplachottor.lab.models.OverallLearningProgress
 import com.shaplachottor.lab.models.Phase
+import com.shaplachottor.lab.models.PhaseLearningProgress
 import com.shaplachottor.lab.models.User
+import com.shaplachottor.lab.util.ProgressCalculator
+import com.shaplachottor.lab.util.SequentialLessonProgressResolver
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 
 open class PhaseRepository(
     private val authSessionProvider: AuthSessionProvider = AppGraph.authSessionProvider(),
     private val appStore: AppStore = AppGraph.appStore()
 ) {
+    companion object {
+        private const val TAG = "PhaseRepository"
+    }
+
+    private data class PhaseLessonSnapshot(
+        val phaseId: String,
+        val state: SequentialLessonProgressResolver.SequentialLessonState,
+        val lessons: List<Lesson>,
+        val phaseProgressPercent: Int
+    ) {
+        val completedCount: Int
+            get() = state.completedCount
+
+        val totalCount: Int
+            get() = state.totalCount
+
+        val repairLessonIds: Set<String>
+            get() = linkedSetOf<String>().apply {
+                addAll(state.invalidCompletedLessonIds)
+                addAll(state.unknownCompletedLessonIds)
+            }
+
+        fun toPhaseLearningProgress(): PhaseLearningProgress {
+            return PhaseLearningProgress(
+                phaseId = phaseId,
+                completedLessons = completedCount,
+                totalLessons = totalCount,
+                percent = phaseProgressPercent
+            )
+        }
+    }
+
+    private data class UserProgressSnapshot(
+        val phaseSnapshots: List<PhaseLessonSnapshot>,
+        val phaseProgress: Map<String, Int>,
+        val completedPhases: List<String>,
+        val overallProgress: Int,
+        val unlockedFeatures: AdvancedFeatures
+    )
 
     suspend fun ensurePhasesSeeded(): Boolean {
+        // Only the admin can seed the entire catalog to avoid permission errors for students
+        if (authSessionProvider.currentUser()?.email != "sushen.biswas.aga@gmail.com") return false
         return try {
             val existingPhases = appStore.getPhases()
             val existingIds = existingPhases.map { it.phaseId }.toSet()
@@ -58,118 +106,127 @@ open class PhaseRepository(
     }
 
     suspend fun getLessonsForPhase(phaseId: String): List<Lesson> {
-        val userId = authSessionProvider.currentUser()?.uid
-        val completedIds = if (userId != null) {
-            appStore.getCompletedLessonIds(userId, phaseId)
-        } else {
+        return try {
+            getPhaseLessonSnapshot(phaseId).lessons
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to load lessons for phaseId=$phaseId", e)
             emptyList()
         }
+    }
+
+    suspend fun getLearningJourneyProgress(user: User? = null): LearningJourneyProgress? {
+        val userId = authSessionProvider.currentUser()?.uid ?: return null
+        val currentUser = user ?: appStore.getUser(userId) ?: return null
 
         return try {
-            val baseLessons = when (phaseId) {
-                PhaseCatalog.PHASE1 -> com.shaplachottor.lab.data.Phase1LessonProvider.getLessons()
-                PhaseCatalog.PHASE2 -> listOf(
-                    Lesson("L1", PhaseCatalog.PHASE2, "Data Analysis Fundamentals", emptyList(), false, 1),
-                    Lesson("L2", PhaseCatalog.PHASE2, "Working with DataFrames", emptyList(), false, 2),
-                    Lesson("L3", PhaseCatalog.PHASE2, "Visualizing Trends", emptyList(), false, 3)
-                )
-                PhaseCatalog.PHASE3 -> listOf(
-                    Lesson("L1", PhaseCatalog.PHASE3, "OOP Principles", emptyList(), false, 1),
-                    Lesson("L2", PhaseCatalog.PHASE3, "Design Patterns", emptyList(), false, 2),
-                    Lesson("L3", PhaseCatalog.PHASE3, "Refactoring Code", emptyList(), false, 3)
-                )
-                PhaseCatalog.PHASE4 -> listOf(
-                    Lesson("L1", PhaseCatalog.PHASE4, "Scalability Basics", emptyList(), false, 1),
-                    Lesson("L2", PhaseCatalog.PHASE4, "Backend Architecture", emptyList(), false, 2),
-                    Lesson("L3", PhaseCatalog.PHASE4, "Database Optimization", emptyList(), false, 3)
-                )
-                PhaseCatalog.PHASE5 -> listOf(
-                    Lesson("L1", PhaseCatalog.PHASE5, "Pipeline Simulation", emptyList(), false, 1),
-                    Lesson("L2", PhaseCatalog.PHASE5, "Decision Systems", emptyList(), false, 2),
-                    Lesson("L3", PhaseCatalog.PHASE5, "Data Consistency", emptyList(), false, 3)
-                )
-                PhaseCatalog.PHASE6 -> listOf(
-                    Lesson("L1", PhaseCatalog.PHASE6, "CI/CD for AI", emptyList(), false, 1),
-                    Lesson("L2", PhaseCatalog.PHASE6, "Monitoring & Alerts", emptyList(), false, 2),
-                    Lesson("L3", PhaseCatalog.PHASE6, "Reliability Engineering", emptyList(), false, 3)
-                )
-                else -> emptyList()
-            }
-            
-            baseLessons.map { lesson ->
-                lesson.copy(isCompleted = completedIds.contains(lesson.id))
-            }.sortedBy { it.order }
+            val phases = getPhases().sortedBy { it.order }
+            val userProgressSnapshot = buildUserProgressSnapshot(userId)
+            buildLearningJourneyProgress(
+                currentUser = currentUser,
+                userProgressSnapshot = userProgressSnapshot,
+                phases = phases
+            )
         } catch (e: Exception) {
-            emptyList()
+            android.util.Log.e(TAG, "Failed to build learning journey progress for userId=$userId", e)
+            null
         }
     }
 
     suspend fun updateLessonProgress(phaseId: String, lessonId: String, isCompleted: Boolean): Boolean {
         val userId = authSessionProvider.currentUser()?.uid ?: return false
-        val db = FirebaseFirestore.getInstance()
 
         return try {
-            // 1. Fetch current lessons to calculate new progress state
-            val lessons = getLessonsForPhase(phaseId)
-            val updatedLessons = lessons.map { 
-                if (it.id == lessonId) it.copy(isCompleted = isCompleted) else it 
+            val currentSnapshot = getPhaseLessonSnapshot(phaseId, userId)
+            val lessonIndex = currentSnapshot.state.indexOfLesson(lessonId)
+            if (lessonIndex == -1) {
+                android.util.Log.w(TAG, "Blocked progress update for unknown lessonId=$lessonId in phaseId=$phaseId")
+                return false
             }
-            
-            val totalLessons = updatedLessons.size
-            if (totalLessons == 0) return true
 
-            val completedCount = updatedLessons.count { it.isCompleted }
-            val phaseProgressPercent = com.shaplachottor.lab.util.ProgressCalculator.calculatePhaseProgress(completedCount, totalLessons)
+            android.util.Log.d(
+                TAG,
+                "Progress update requested: phaseId=$phaseId, lessonId=$lessonId, lessonIndex=$lessonIndex, isCompleted=$isCompleted, rawCompleted=${currentSnapshot.state.rawCompletedLessonIds.sorted()}, canonicalCompleted=${currentSnapshot.state.completedLessonIds.sorted()}, unlocked=${currentSnapshot.state.unlockedLessonIds.sorted()}"
+            )
 
-            // 2. Perform atomic update in a single transaction
+            val completionChange = SequentialLessonProgressResolver.applyCompletionChange(
+                state = currentSnapshot.state,
+                lessonId = lessonId,
+                isCompleted = isCompleted
+            )
+
+            val updatedCompletedIds = when (completionChange) {
+                is SequentialLessonProgressResolver.CompletionChange.Success -> completionChange.completedLessonIds
+                is SequentialLessonProgressResolver.CompletionChange.Rejected -> {
+                    android.util.Log.w(
+                        TAG,
+                        "Blocked progress update for phaseId=$phaseId, lessonId=$lessonId, isCompleted=$isCompleted: ${completionChange.reason}"
+                    )
+                    return false
+                }
+            }
+
+            val updatedState = SequentialLessonProgressResolver.resolve(
+                lessons = currentSnapshot.state.orderedLessons,
+                rawCompletedLessonIds = updatedCompletedIds
+            )
+            val updatedPhaseSnapshot = PhaseLessonSnapshot(
+                phaseId = phaseId,
+                state = updatedState,
+                lessons = updatedState.toRenderedLessons(),
+                phaseProgressPercent = ProgressCalculator.calculatePhaseProgress(
+                    completedCount = updatedState.completedCount,
+                    totalCount = updatedState.totalCount
+                )
+            )
+            val userProgressSnapshot = buildUserProgressSnapshot(
+                userId = userId,
+                phaseOverrides = mapOf(phaseId to updatedPhaseSnapshot)
+            )
+
+            android.util.Log.d(
+                TAG,
+                "Progress update resolved: phaseId=$phaseId, lessonId=$lessonId, updatedCompleted=${updatedState.completedLessonIds.sorted()}, updatedUnlocked=${updatedState.unlockedLessonIds.sorted()}, phaseProgress=${updatedPhaseSnapshot.phaseProgressPercent}, overallProgress=${userProgressSnapshot.overallProgress}"
+            )
+
+            val db = FirebaseFirestore.getInstance()
             db.runTransaction { transaction ->
                 val userRef = db.collection("users").document(userId)
-                val lessonRef = userRef.collection("progress")
-                    .document(phaseId)
-                    .collection("lessons")
-                    .document(lessonId)
-
                 val userSnap = transaction.get(userRef)
                 if (!userSnap.exists()) {
                     throw Exception("User profile not found. Please complete registration.")
                 }
 
-                val user = userSnap.toObject(User::class.java) ?: throw Exception("Failed to parse user profile")
-                
-                // Update lesson completion status
-                transaction.set(lessonRef, mapOf("isCompleted" to isCompleted))
-
-                // Calculate overall progress and feature unlocks
-                val currentPhaseProgressMap = user.phaseProgress.toMutableMap()
-                currentPhaseProgressMap[phaseId] = phaseProgressPercent
-
-                val completedPhases = user.completedPhases.toMutableList()
-                if (com.shaplachottor.lab.util.ProgressCalculator.shouldMarkPhaseAsCompleted(phaseProgressPercent)) {
-                    if (!completedPhases.contains(phaseId)) completedPhases.add(phaseId)
-                } else {
-                    completedPhases.remove(phaseId)
-                }
-
-                val overallProgress = com.shaplachottor.lab.util.ProgressCalculator.calculateOverallProgress(
-                    currentPhaseProgressMap,
-                    PhaseCatalog.phaseIds
+                applyLessonProgressWrites(
+                    transaction = transaction,
+                    userId = userId,
+                    phaseId = phaseId,
+                    desiredCompletedLessonIds = updatedState.completedLessonIds,
+                    rawCompletedLessonIds = currentSnapshot.state.rawCompletedLessonIds,
+                    repairLessonIds = currentSnapshot.repairLessonIds
                 )
-                
-                val features = com.shaplachottor.lab.util.ProgressCalculator.calculateUnlockedFeatures(overallProgress)
 
-                // Update user document
-                transaction.update(userRef, mapOf(
-                    "phaseProgress" to currentPhaseProgressMap,
-                    "completedPhases" to completedPhases,
-                    "progress" to overallProgress,
-                    "unlockedFeatures" to features
-                ))
-                
+                userProgressSnapshot.phaseSnapshots
+                    .filter { it.phaseId != phaseId && it.repairLessonIds.isNotEmpty() }
+                    .forEach { snapshot ->
+                        applyLessonProgressWrites(
+                            transaction = transaction,
+                            userId = userId,
+                            phaseId = snapshot.phaseId,
+                            desiredCompletedLessonIds = snapshot.state.completedLessonIds,
+                            rawCompletedLessonIds = snapshot.state.rawCompletedLessonIds,
+                            repairLessonIds = snapshot.repairLessonIds
+                        )
+                    }
+
+                android.util.Log.d(
+                    TAG,
+                    "Updating user progress document: userId=$userId, phaseProgress=${userProgressSnapshot.phaseProgress}, completedPhases=${userProgressSnapshot.completedPhases}, overallProgress=${userProgressSnapshot.overallProgress}"
+                )
+                transaction.update(userRef, buildUserProgressUpdateMap(userProgressSnapshot))
                 true
             }.await()
 
-            // 3. Handle affiliate conversion if Phase 1 is completed
-            if (phaseId == PhaseCatalog.PHASE1 && phaseProgressPercent == 100) {
+            if (phaseId == PhaseCatalog.PHASE1 && updatedPhaseSnapshot.phaseProgressPercent == 100) {
                 val user = appStore.getUser(userId)
                 if (user?.referredBy != null) {
                     appStore.recordConversion(user.referredBy, userId)
@@ -178,7 +235,7 @@ open class PhaseRepository(
 
             true
         } catch (e: Exception) {
-            android.util.Log.e("PhaseRepository", "Progress update failed: ${e.message}", e)
+            android.util.Log.e(TAG, "Progress update failed for phaseId=$phaseId, lessonId=$lessonId", e)
             false
         }
     }
@@ -197,16 +254,35 @@ open class PhaseRepository(
             return BookingRequestResult(BookingRequestOutcome.INVALID_CONTACT_INFO)
         }
 
-        val db = FirebaseFirestore.getInstance()
         return try {
             val bookingId = "${userId}_${phase.phaseId}"
             
+            // Phase Prerequisite Validation
+            val allPhases = PhaseCatalog.allPhases
+            val currentIndex = allPhases.indexOfFirst { it.phaseId == phase.phaseId }
+            if (currentIndex > 0) {
+                val previousPhaseId = allPhases[currentIndex - 1].phaseId
+                val previousPhaseSnapshot = getPhaseLessonSnapshot(previousPhaseId, userId)
+                val previousPhaseCompleted = ProgressCalculator.shouldMarkPhaseAsCompleted(
+                    completedCount = previousPhaseSnapshot.completedCount,
+                    totalCount = previousPhaseSnapshot.totalCount
+                )
+                if (previousPhaseSnapshot.totalCount > 0 && !previousPhaseCompleted) {
+                    android.util.Log.d(
+                        TAG,
+                        "Seat request blocked: phaseId=${phase.phaseId}, previousPhaseId=$previousPhaseId, completedLessons=${previousPhaseSnapshot.completedCount}/${previousPhaseSnapshot.totalCount}"
+                    )
+                    return BookingRequestResult(BookingRequestOutcome.PREREQUISITE_NOT_MET)
+                }
+            }
+
+            val db = FirebaseFirestore.getInstance()
             db.runTransaction { transaction ->
                 val phaseRef = db.collection("phases").document(phase.phaseId)
                 val phaseSnap = transaction.get(phaseRef)
                 
-                // If not in Firestore yet, use catalog defaults
-                val total = if (phaseSnap.exists()) phaseSnap.getLong("totalSeats")?.toInt() ?: 100 else 100
+                // Deterministic bootstrap: use catalog if doc doesn't exist yet
+                val total = if (phaseSnap.exists()) phaseSnap.getLong("totalSeats")?.toInt() ?: phase.totalSeats else phase.totalSeats
                 val booked = if (phaseSnap.exists()) phaseSnap.getLong("bookedSeats")?.toInt() ?: 0 else 0
 
                 if (booked >= total) {
@@ -247,9 +323,13 @@ open class PhaseRepository(
                 // Atomic Updates: Reserve Seat + Create Booking
                 transaction.set(bookingRef, booking)
                 
-                // Atomic Update: Reserve Seat
-                // Rule: Students can only update 'bookedSeats' and only by +/- 1
-                transaction.update(phaseRef, "bookedSeats", booked + 1)
+                if (phaseSnap.exists()) {
+                    transaction.update(phaseRef, "bookedSeats", booked + 1)
+                } else {
+                    // Bootstrap the phase document with first seat booked
+                    val bootstrappedPhase = phase.copy(bookedSeats = 1)
+                    transaction.set(phaseRef, bootstrappedPhase)
+                }
                 
                 BookingRequestResult(
                     outcome = BookingRequestOutcome.REQUEST_CREATED,
@@ -257,6 +337,7 @@ open class PhaseRepository(
                 )
             }.await()
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "Request seat failed for phaseId=${phase.phaseId}", e)
             BookingRequestResult(BookingRequestOutcome.FAILED)
         }
     }
@@ -411,10 +492,301 @@ open class PhaseRepository(
     suspend fun canAccessPhase(phaseId: String): Boolean {
         val userId = authSessionProvider.currentUser()?.uid ?: return false
         return try {
-            appStore.getUser(userId)?.unlockedPhases?.contains(phaseId) == true
+            val user = appStore.getUser(userId) ?: return false
+            val phase = getPhaseById(phaseId) ?: return false
+
+            // Rule 1: TYPE_FREE phases are always "unlocked" from a booking perspective
+            val isUnlocked = phase.type == Phase.TYPE_FREE || user.unlockedPhases.contains(phaseId)
+            if (!isUnlocked) {
+                android.util.Log.d(TAG, "Access denied to phaseId=$phaseId because the phase is not unlocked for userId=$userId")
+                return false
+            }
+
+            // Rule 2: Sequential Completion Check
+            val allPhases = PhaseCatalog.allPhases
+            val currentIndex = allPhases.indexOfFirst { it.phaseId == phaseId }
+            
+            if (currentIndex > 0) {
+                // Check all previous phases to ensure no gaps
+                for (i in 0 until currentIndex) {
+                    val prevId = allPhases[i].phaseId
+                    val previousPhaseSnapshot = getPhaseLessonSnapshot(prevId, userId)
+                    
+                    // A phase blocks progress IF it has lessons AND it's not marked as completed
+                      val previousPhaseCompleted = ProgressCalculator.shouldMarkPhaseAsCompleted(
+                          completedCount = previousPhaseSnapshot.completedCount,
+                          totalCount = previousPhaseSnapshot.totalCount
+                      )
+                      if (previousPhaseSnapshot.totalCount > 0 && !previousPhaseCompleted) {
+                          android.util.Log.d(
+                              TAG,
+                              "Access denied to phaseId=$phaseId because previous phaseId=$prevId is not complete. CompletedLessons=${previousPhaseSnapshot.completedCount}/${previousPhaseSnapshot.totalCount}"
+                          )
+                        return false
+                    }
+                }
+            }
+            true
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "canAccessPhase failed for phaseId=$phaseId", e)
             false
         }
+    }
+
+    suspend fun reconcileProgressState(): User? {
+        val userId = authSessionProvider.currentUser()?.uid ?: return null
+        val currentUser = appStore.getUser(userId) ?: return null
+
+        return try {
+            val userProgressSnapshot = buildUserProgressSnapshot(userId)
+            val hasLessonRepairs = userProgressSnapshot.phaseSnapshots.any { it.repairLessonIds.isNotEmpty() }
+            val hasUserRepairs = shouldRepairUserProgress(currentUser, userProgressSnapshot)
+
+            if (hasLessonRepairs || hasUserRepairs) {
+                val db = FirebaseFirestore.getInstance()
+                db.runTransaction { transaction ->
+                    val userRef = db.collection("users").document(userId)
+                    val userSnap = transaction.get(userRef)
+                    if (!userSnap.exists()) {
+                        throw Exception("User profile not found. Please complete registration.")
+                    }
+
+                    userProgressSnapshot.phaseSnapshots
+                        .filter { it.repairLessonIds.isNotEmpty() }
+                        .forEach { snapshot ->
+                            applyLessonProgressWrites(
+                                transaction = transaction,
+                                userId = userId,
+                                phaseId = snapshot.phaseId,
+                                desiredCompletedLessonIds = snapshot.state.completedLessonIds,
+                                rawCompletedLessonIds = snapshot.state.rawCompletedLessonIds,
+                                repairLessonIds = snapshot.repairLessonIds
+                            )
+                        }
+
+                    android.util.Log.d(
+                        TAG,
+                        "Reconciling user progress: userId=$userId, hasLessonRepairs=$hasLessonRepairs, hasUserRepairs=$hasUserRepairs, phaseProgress=${userProgressSnapshot.phaseProgress}, completedPhases=${userProgressSnapshot.completedPhases}, overallProgress=${userProgressSnapshot.overallProgress}"
+                    )
+                    transaction.update(userRef, buildUserProgressUpdateMap(userProgressSnapshot))
+                    true
+                }.await()
+            }
+
+            currentUser.copy(
+                phaseProgress = userProgressSnapshot.phaseProgress,
+                completedPhases = userProgressSnapshot.completedPhases,
+                progress = userProgressSnapshot.overallProgress,
+                unlockedFeatures = userProgressSnapshot.unlockedFeatures
+            )
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to reconcile user progress for userId=$userId", e)
+            currentUser
+        }
+    }
+
+    private suspend fun getPhaseLessonSnapshot(
+        phaseId: String,
+        userId: String? = authSessionProvider.currentUser()?.uid
+    ): PhaseLessonSnapshot {
+        val baseLessons = getBaseLessonsForPhase(phaseId)
+        val rawCompletedLessonIds = if (userId == null) {
+            emptyList()
+        } else {
+            appStore.getCompletedLessonIds(userId, phaseId)
+        }
+        val state = SequentialLessonProgressResolver.resolve(baseLessons, rawCompletedLessonIds)
+        val renderedLessons = state.toRenderedLessons()
+        val phaseProgressPercent = ProgressCalculator.calculatePhaseProgress(
+            completedCount = state.completedCount,
+            totalCount = state.totalCount
+        )
+        val snapshot = PhaseLessonSnapshot(
+            phaseId = phaseId,
+            state = state,
+            lessons = renderedLessons,
+            phaseProgressPercent = phaseProgressPercent
+        )
+        logPhaseSnapshot(snapshot)
+        return snapshot
+    }
+
+    private fun getBaseLessonsForPhase(phaseId: String): List<Lesson> {
+        return when (phaseId) {
+            PhaseCatalog.PHASE1 -> com.shaplachottor.lab.data.Phase1LessonProvider.getLessons()
+            PhaseCatalog.PHASE2 -> com.shaplachottor.lab.data.Phase2LessonProvider.getLessons()
+            PhaseCatalog.PHASE3 -> com.shaplachottor.lab.data.Phase3LessonProvider.getLessons()
+            PhaseCatalog.PHASE4 -> com.shaplachottor.lab.data.Phase4LessonProvider.getLessons()
+            PhaseCatalog.PHASE5 -> com.shaplachottor.lab.data.Phase5LessonProvider.getLessons()
+            PhaseCatalog.PHASE6 -> com.shaplachottor.lab.data.Phase6LessonProvider.getLessons()
+            else -> emptyList()
+        }.sortedBy { it.order }
+    }
+
+    private suspend fun buildUserProgressSnapshot(
+        userId: String,
+        phaseOverrides: Map<String, PhaseLessonSnapshot> = emptyMap()
+    ): UserProgressSnapshot {
+        val phaseSnapshots = coroutineScope {
+            PhaseCatalog.phaseIds.map { phaseId ->
+                async {
+                    phaseOverrides[phaseId] ?: getPhaseLessonSnapshot(phaseId, userId)
+                }
+            }.awaitAll()
+        }
+
+        val phaseProgress = linkedMapOf<String, Int>().apply {
+            phaseSnapshots.forEach { snapshot ->
+                put(snapshot.phaseId, snapshot.phaseProgressPercent)
+            }
+        }
+        val completedPhases = phaseSnapshots
+            .filter {
+                ProgressCalculator.shouldMarkPhaseAsCompleted(
+                    completedCount = it.completedCount,
+                    totalCount = it.totalCount
+                )
+            }
+            .map { it.phaseId }
+        val overallProgress = ProgressCalculator.calculateOverallProgress(
+            phaseSnapshots.map { snapshot ->
+                ProgressCalculator.PhaseStats(
+                    phaseId = snapshot.phaseId,
+                    completedCount = snapshot.completedCount,
+                    totalCount = snapshot.totalCount
+                )
+            }
+        )
+        val unlockedFeatures = ProgressCalculator.calculateUnlockedFeatures(overallProgress)
+
+        return UserProgressSnapshot(
+            phaseSnapshots = phaseSnapshots,
+            phaseProgress = phaseProgress,
+            completedPhases = completedPhases,
+            overallProgress = overallProgress,
+            unlockedFeatures = unlockedFeatures
+        )
+    }
+
+    private fun buildLearningJourneyProgress(
+        currentUser: User,
+        userProgressSnapshot: UserProgressSnapshot,
+        phases: List<Phase>
+    ): LearningJourneyProgress {
+        val phaseProgressById = userProgressSnapshot.phaseSnapshots
+            .associate { snapshot -> snapshot.phaseId to snapshot.toPhaseLearningProgress() }
+        val currentPhaseProgress = phases
+            .firstOrNull { phase ->
+                val isAccessible = isPhaseAccessible(phase, currentUser)
+                val phaseProgress = phaseProgressById[phase.phaseId]
+                isAccessible && phaseProgress?.isCompleted == false
+            }
+            ?.let { activePhase ->
+                CurrentPhaseProgress(
+                    phase = activePhase,
+                    progress = requireNotNull(phaseProgressById[activePhase.phaseId])
+                )
+            }
+
+        val overallLearningProgress = OverallLearningProgress(
+            percent = userProgressSnapshot.overallProgress,
+            completedPhases = userProgressSnapshot.completedPhases.size,
+            totalPhases = userProgressSnapshot.phaseSnapshots.size
+        )
+
+        return LearningJourneyProgress(
+            currentPhaseProgress = currentPhaseProgress,
+            overallLearningProgress = overallLearningProgress,
+            phaseProgressById = phaseProgressById,
+            completedPhaseIds = userProgressSnapshot.completedPhases,
+            unlockedPhaseIds = currentUser.unlockedPhases
+        ).also { journeyProgress ->
+            logLearningJourneyProgress(journeyProgress)
+        }
+    }
+
+    private fun isPhaseAccessible(phase: Phase, user: User): Boolean {
+        return phase.type == Phase.TYPE_FREE || user.unlockedPhases.contains(phase.phaseId)
+    }
+
+    private fun applyLessonProgressWrites(
+        transaction: com.google.firebase.firestore.Transaction,
+        userId: String,
+        phaseId: String,
+        desiredCompletedLessonIds: Set<String>,
+        rawCompletedLessonIds: Set<String>,
+        repairLessonIds: Set<String>
+    ) {
+        val lessonIdsToWrite = linkedSetOf<String>().apply {
+            addAll(rawCompletedLessonIds)
+            addAll(desiredCompletedLessonIds)
+            addAll(repairLessonIds)
+        }
+
+        lessonIdsToWrite.forEach { persistedLessonId ->
+            val shouldBeCompleted = desiredCompletedLessonIds.contains(persistedLessonId)
+            val lessonRef = FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(userId)
+                .collection("progress")
+                .document(phaseId)
+                .collection("lessons")
+                .document(persistedLessonId)
+
+            android.util.Log.d(
+                TAG,
+                "Persisting lesson progress: path=${lessonRef.path}, phaseId=$phaseId, lessonId=$persistedLessonId, isCompleted=$shouldBeCompleted"
+            )
+            transaction.set(lessonRef, mapOf("isCompleted" to shouldBeCompleted))
+        }
+    }
+
+    private fun buildUserProgressUpdateMap(userProgressSnapshot: UserProgressSnapshot): Map<String, Any> {
+        return mapOf(
+            "phaseProgress" to userProgressSnapshot.phaseProgress,
+            "completedPhases" to userProgressSnapshot.completedPhases,
+            "progress" to userProgressSnapshot.overallProgress,
+            "unlockedFeatures" to userProgressSnapshot.unlockedFeatures
+        )
+    }
+
+    private fun shouldRepairUserProgress(
+        user: User,
+        userProgressSnapshot: UserProgressSnapshot
+    ): Boolean {
+        return user.phaseProgress != userProgressSnapshot.phaseProgress ||
+            user.completedPhases != userProgressSnapshot.completedPhases ||
+            user.progress != userProgressSnapshot.overallProgress ||
+            user.unlockedFeatures != userProgressSnapshot.unlockedFeatures
+    }
+
+    private fun logPhaseSnapshot(snapshot: PhaseLessonSnapshot) {
+        val lessonIndexes = snapshot.state.orderedLessons
+            .mapIndexed { index, lesson -> "${lesson.id}@index=$index/order=${lesson.order}" }
+            .joinToString()
+        android.util.Log.d(
+            TAG,
+            "Phase snapshot: phaseId=${snapshot.phaseId}, lessonIndexes=[$lessonIndexes], rawCompleted=${snapshot.state.rawCompletedLessonIds.sorted()}, canonicalCompleted=${snapshot.state.completedLessonIds.sorted()}, invalidCompleted=${snapshot.state.invalidCompletedLessonIds.sorted()}, unknownCompleted=${snapshot.state.unknownCompletedLessonIds.sorted()}, unlocked=${snapshot.state.unlockedLessonIds.sorted()}, progress=${snapshot.phaseProgressPercent}"
+        )
+    }
+
+    private fun logLearningJourneyProgress(journeyProgress: LearningJourneyProgress) {
+        val activePhase = journeyProgress.currentPhaseProgress
+        val currentPhaseSummary = if (activePhase == null) {
+            "none"
+        } else {
+            "${activePhase.phase.phaseId}:${activePhase.progress.completedLessons}/${activePhase.progress.totalLessons} (${activePhase.progress.percent}%)"
+        }
+        val phaseSummaries = journeyProgress.phaseProgressById.values
+            .sortedBy { PhaseCatalog.phaseIds.indexOf(it.phaseId) }
+            .joinToString { progress ->
+                "${progress.phaseId}=${progress.completedLessons}/${progress.totalLessons} (${progress.percent}%)"
+            }
+
+        android.util.Log.d(
+            TAG,
+            "Learning journey progress: activePhase=$currentPhaseSummary, completedPhases=${journeyProgress.completedPhaseIds}, unlockedPhases=${journeyProgress.unlockedPhaseIds}, overallPercent=${journeyProgress.overallLearningProgress.percent}, totalPhases=${journeyProgress.overallLearningProgress.totalPhases}, phaseSummaries=[$phaseSummaries]"
+        )
     }
 
     private suspend fun Booking.normalizeBooking(now: Long = System.currentTimeMillis()): Booking {

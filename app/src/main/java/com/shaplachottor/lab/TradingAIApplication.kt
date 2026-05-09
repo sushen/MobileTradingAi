@@ -16,31 +16,35 @@ class TradingAIApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize Meta SDK before any event logging.
-        FacebookSdk.setApplicationId(getString(R.string.facebook_app_id))
-        FacebookSdk.setClientToken(getString(R.string.facebook_client_token))
-        FacebookSdk.fullyInitialize()
-
-        // Keep collection behavior enabled for production installs.
-        FacebookSdk.setAutoLogAppEventsEnabled(true)
-        FacebookSdk.setAdvertiserIDCollectionEnabled(true)
-        AppEventsLogger.activateApp(this)
-
-        if (BuildConfig.DEBUG) {
-            // Keep verbose Meta diagnostics removable from release builds.
-            FacebookSdk.setIsDebugEnabled(true)
-            FacebookSdk.addLoggingBehavior(LoggingBehavior.APP_EVENTS)
-            FacebookSdk.addLoggingBehavior(LoggingBehavior.DEVELOPER_ERRORS)
-            printKeyHash()
-            Log.d("FB_SDK_STATUS", "SDK Initialized: ${FacebookSdk.isInitialized()}")
-            Log.d("FB_SDK_STATUS", "App ID: ${FacebookSdk.getApplicationId()}")
-        }
-
+        // 1. Initialize Firebase as early as possible
         try {
             FirebaseApp.initializeApp(this)
         } catch (e: Exception) {
             Log.e("FIREBASE_ERROR", "Initialization failed", e)
         }
+
+        // 2. Initialize AppGraph
+        try {
+            com.shaplachottor.lab.data.AppGraph.init(this)
+        } catch (e: Exception) {
+            Log.e("APP_GRAPH_ERROR", "Initialization failed", e)
+        }
+
+        // 3. Defer Meta SDK initialization to prevent blocking the main thread
+        Thread {
+            try {
+                FacebookSdk.fullyInitialize()
+                FacebookSdk.setAutoLogAppEventsEnabled(true)
+                FacebookSdk.setAdvertiserIDCollectionEnabled(true)
+                if (BuildConfig.DEBUG) {
+                    FacebookSdk.setIsDebugEnabled(true)
+                    FacebookSdk.addLoggingBehavior(LoggingBehavior.APP_EVENTS)
+                    printKeyHash()
+                }
+            } catch (e: Exception) {
+                Log.e("FB_SDK_ERROR", "Deferred initialization failed", e)
+            }
+        }.start()
     }
 
     private fun printKeyHash() {

@@ -20,25 +20,32 @@ class SplashActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
 
-        if (BuildConfig.DEBUG) {
-            Log.d("FB_SDK_CHECK", "Initialized: ${FacebookSdk.isInitialized()}")
-            val logger = AppEventsLogger.newLogger(this)
-            val params = Bundle().apply {
-                putString("source", "SplashActivity")
-            }
-            logger.logEvent("fb_mobile_test_event", params)
-
-            // Force a flush during validation so test events show up quickly.
-            AppEventsLogger.onContextStop()
-            Log.d("FB_SDK_CHECK", "Event fb_mobile_test_event logged and flushed.")
-        }
-
         lifecycleScope.launch {
+            try {
+                if (BuildConfig.DEBUG) {
+                    Log.d("FB_SDK_CHECK", "Initialized: ${FacebookSdk.isInitialized()}")
+                    val logger = AppEventsLogger.newLogger(this@SplashActivity)
+                    val params = Bundle().apply {
+                        putString("source", "SplashActivity")
+                    }
+                    logger.logEvent("fb_mobile_test_event", params)
+                }
+            } catch (e: Exception) {
+                Log.e("SPLASH_ERROR", "SDK logging failed", e)
+            }
+
             delay(2000)
-            val currentUser = FirebaseAuth.getInstance().currentUser
-            if (currentUser != null) {
-                startActivity(Intent(this@SplashActivity, MainActivity::class.java))
-            } else {
+            
+            try {
+                val currentUser = FirebaseAuth.getInstance().currentUser
+                if (currentUser != null) {
+                    startActivity(Intent(this@SplashActivity, MainActivity::class.java))
+                } else {
+                    startActivity(Intent(this@SplashActivity, LoginActivity::class.java))
+                }
+            } catch (e: Exception) {
+                Log.e("SPLASH_ERROR", "Navigation failed", e)
+                // Fallback to Login in case of Auth errors
                 startActivity(Intent(this@SplashActivity, LoginActivity::class.java))
             }
             finish()

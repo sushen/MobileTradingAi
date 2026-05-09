@@ -1,0 +1,54 @@
+PROMPT 1 — BOOKING SYSTEM HARDENING
+
+You are a senior Android and Firebase Firestore engineer working inside an existing Kotlin Android application repository called Shapla Chottor Lab.
+
+Treat context.md as the single source of truth.
+
+IMPORTANT:
+- Keep the app fully client-side only
+- Allowed stack:
+  - Kotlin Android
+  - Firebase Auth
+  - Firestore
+  - Firestore Security Rules
+- DO NOT add:
+  - Cloud Functions
+  - Backend server
+  - Supabase
+  - REST APIs
+  - External infrastructure
+
+Admin email:
+sushen.biswas.aga@gmail.com
+
+TASK:
+Harden and stabilize the entire phase booking lifecycle.
+
+Fix:
+- seat counter integrity
+- deterministic phase bootstrap
+- transaction safety
+- Firestore rule alignment
+- idempotent booking transitions
+
+Ensure:
+- users cannot manipulate bookedSeats
+- phases auto-exist from PhaseCatalog
+- double booking cannot happen
+- double decrement cannot happen
+- invalid transitions are blocked
+- booking expiry remains 15 minutes
+
+Inspect and align:
+- PhaseRepository
+- FirestoreAppStore
+- firestore.rules
+- PhaseCatalog
+- booking write paths
+- classroom unlock flow
+
+Return ONLY:
+1. implementation plan
+2. files changed
+3. patch-ready diffs
+4. verification checklist

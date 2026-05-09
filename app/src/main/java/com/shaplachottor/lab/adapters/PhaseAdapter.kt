@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.shaplachottor.lab.data.PhaseCatalog
 import com.shaplachottor.lab.databinding.ItemPhaseBinding
 import com.shaplachottor.lab.models.Booking
 import com.shaplachottor.lab.models.Phase
@@ -16,6 +17,7 @@ import java.util.Locale
 class PhaseAdapter(
     private val phases: List<Phase>,
     private val userUnlockedPhases: List<String>,
+    private val completedPhaseIds: List<String>,
     private val bookingStates: Map<String, Booking>,
     private val onPhaseClick: (Phase) -> Unit
 ) : RecyclerView.Adapter<PhaseAdapter.ViewHolder>() {
@@ -43,15 +45,18 @@ class PhaseAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val phase = phases[position]
-        val isUnlocked = userUnlockedPhases.contains(phase.phaseId)
+        val isUnlocked = userUnlockedPhases.contains(phase.phaseId) || phase.type == Phase.TYPE_FREE
         val booking = bookingStates[phase.phaseId]
         val context = holder.binding.root.context
         
         holder.stopTimer()
 
         // Find missing prerequisite
-        val previousPhase = if (position > 0) phases[position - 1] else null
-        val isMissingPrerequisite = previousPhase != null && !userUnlockedPhases.contains(previousPhase.phaseId)
+        val previousPhaseId = PhaseCatalog.allPhases
+            .firstOrNull { catalogPhase -> catalogPhase.order == phase.order - 1 }
+            ?.phaseId
+        val isMissingPrerequisite = previousPhaseId != null &&
+            !completedPhaseIds.contains(previousPhaseId)
 
         holder.binding.apply {
             tvPhaseNumber.text = "Phase ${phase.order}"
@@ -69,9 +74,9 @@ class PhaseAdapter(
             when {
                 isUnlocked -> {
                     phaseState = "UNLOCKED"
-                    statusMessage = "Approved and unlocked."
-                    buttonText = "Unlocked"
-                    buttonEnabled = false
+                    statusMessage = if (phase.type == Phase.TYPE_FREE) "Free access for all students." else "Approved and unlocked."
+                    buttonText = "Enter Classroom"
+                    buttonEnabled = true
                     badgeColor = "#2E7D32" // Shapla Green
                 }
                 booking?.status == Booking.STATUS_PENDING -> {
@@ -105,7 +110,8 @@ class PhaseAdapter(
                 }
                 isMissingPrerequisite -> {
                     phaseState = "LOCKED"
-                    statusMessage = "Complete ${previousPhase?.title} before requesting this phase."
+                    val previousPhaseTitle = PhaseCatalog.findById(previousPhaseId.orEmpty())?.title ?: "the previous phase"
+                    statusMessage = "Complete $previousPhaseTitle before requesting this phase."
                     buttonText = "Locked by Progress"
                     buttonEnabled = false
                 }
@@ -133,6 +139,23 @@ class PhaseAdapter(
 
             tvPhaseStateBadge.text = phaseState
             tvPhaseStateBadge.background.setTint(Color.parseColor(badgeColor))
+            
+            // Premium Metadata
+            if (phase.type == Phase.TYPE_PREMIUM) {
+                tvPriceTag.visibility = View.VISIBLE
+                tvPriceTag.text = "${phase.currency} ${phase.price}"
+                tvPhaseNumber.text = "Cohort ${phase.order} (Premium)"
+            } else {
+                tvPriceTag.visibility = View.GONE
+                tvPhaseNumber.text = "Phase ${phase.order}"
+            }
+
+            // Start Date Visibility
+            if (phase.startDate > System.currentTimeMillis()) {
+                val dateStr = DateFormat.getDateFormat(context).format(Date(phase.startDate))
+                statusMessage = "Next Cohort starts: $dateStr"
+            }
+
             tvStatusMessage.text = statusMessage
             btnAction.text = buttonText
             btnAction.isEnabled = buttonEnabled

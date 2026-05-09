@@ -8,12 +8,27 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.tasks.await
 
 class FirestoreAppStore : AppStore {
-    private val db = FirebaseFirestore.getInstance()
+    companion object {
+        private const val TAG = "FirestoreAppStore"
+    }
+
+    private val db = FirebaseFirestore.getInstance().apply {
+        val settings = com.google.firebase.firestore.firestoreSettings {
+            setLocalCacheSettings(com.google.firebase.firestore.PersistentCacheSettings.newBuilder()
+                .setSizeBytes(100 * 1024 * 1024) // 100MB
+                .build())
+        }
+        firestoreSettings = settings
+    }
 
     override suspend fun getPhaseCount(): Int {
         return try {
-            val snapshot = db.collection("phases").get().await()
-            snapshot.size()
+            val snapshot = db.collection("phases").get(com.google.firebase.firestore.Source.CACHE).await()
+            if (snapshot.isEmpty) {
+                db.collection("phases").get(com.google.firebase.firestore.Source.SERVER).await().size()
+            } else {
+                snapshot.size()
+            }
         } catch (e: Exception) {
             0
         }
@@ -25,8 +40,12 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getPhases(): List<Phase> {
         return try {
-            val snapshot = db.collection("phases").get().await()
-            snapshot.toObjects(Phase::class.java)
+            val snapshot = db.collection("phases").get(com.google.firebase.firestore.Source.CACHE).await()
+            if (snapshot.isEmpty) {
+                db.collection("phases").get(com.google.firebase.firestore.Source.SERVER).await().toObjects(Phase::class.java)
+            } else {
+                snapshot.toObjects(Phase::class.java)
+            }
         } catch (e: Exception) {
             emptyList()
         }
@@ -34,8 +53,12 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getPhase(phaseId: String): Phase? {
         return try {
-            val doc = db.collection("phases").document(phaseId).get().await()
-            doc.toObject(Phase::class.java)
+            val doc = db.collection("phases").document(phaseId).get(com.google.firebase.firestore.Source.CACHE).await()
+            if (!doc.exists()) {
+                db.collection("phases").document(phaseId).get(com.google.firebase.firestore.Source.SERVER).await().toObject(Phase::class.java)
+            } else {
+                doc.toObject(Phase::class.java)
+            }
         } catch (e: Exception) {
             null
         }
@@ -43,8 +66,12 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getUser(userId: String): User? {
         return try {
-            val doc = db.collection("users").document(userId).get().await()
-            doc.toObject(User::class.java)
+            val doc = db.collection("users").document(userId).get(com.google.firebase.firestore.Source.CACHE).await()
+            if (!doc.exists()) {
+                db.collection("users").document(userId).get(com.google.firebase.firestore.Source.SERVER).await().toObject(User::class.java)
+            } else {
+                doc.toObject(User::class.java)
+            }
         } catch (e: Exception) {
             null
         }
@@ -52,7 +79,7 @@ class FirestoreAppStore : AppStore {
 
     override fun getUserStream(userId: String): kotlinx.coroutines.flow.Flow<User?> = kotlinx.coroutines.flow.callbackFlow {
         val registration = db.collection("users").document(userId)
-            .addSnapshotListener { snapshot, error ->
+            .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
                 if (error != null) {
                     close(error)
                     return@addSnapshotListener
@@ -68,8 +95,12 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getBooking(bookingId: String): Booking? {
         return try {
-            val doc = db.collection("bookings").document(bookingId).get().await()
-            doc.toObject(Booking::class.java)
+            val doc = db.collection("bookings").document(bookingId).get(com.google.firebase.firestore.Source.CACHE).await()
+            if (!doc.exists()) {
+                db.collection("bookings").document(bookingId).get(com.google.firebase.firestore.Source.SERVER).await().toObject(Booking::class.java)
+            } else {
+                doc.toObject(Booking::class.java)
+            }
         } catch (e: Exception) {
             null
         }
@@ -83,8 +114,14 @@ class FirestoreAppStore : AppStore {
         return try {
             val snapshot = db.collection("bookings")
                 .whereEqualTo("status", Booking.STATUS_PENDING)
-                .get().await()
-            snapshot.toObjects(Booking::class.java)
+                .get(com.google.firebase.firestore.Source.CACHE).await()
+            if (snapshot.isEmpty) {
+                 db.collection("bookings")
+                    .whereEqualTo("status", Booking.STATUS_PENDING)
+                    .get(com.google.firebase.firestore.Source.SERVER).await().toObjects(Booking::class.java)
+            } else {
+                snapshot.toObjects(Booking::class.java)
+            }
         } catch (e: Exception) {
             emptyList()
         }
@@ -92,8 +129,12 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getAllBookings(): List<Booking> {
         return try {
-            val snapshot = db.collection("bookings").get().await()
-            snapshot.toObjects(Booking::class.java)
+            val snapshot = db.collection("bookings").get(com.google.firebase.firestore.Source.CACHE).await()
+             if (snapshot.isEmpty) {
+                db.collection("bookings").get(com.google.firebase.firestore.Source.SERVER).await().toObjects(Booking::class.java)
+            } else {
+                snapshot.toObjects(Booking::class.java)
+            }
         } catch (e: Exception) {
             emptyList()
         }
@@ -106,28 +147,41 @@ class FirestoreAppStore : AppStore {
         isCompleted: Boolean
     ) {
         val completionData = mapOf("isCompleted" to isCompleted)
-        db.collection("users")
+        val lessonRef = db.collection("users")
             .document(userId)
             .collection("progress")
             .document(phaseId)
             .collection("lessons")
             .document(lessonId)
-            .set(completionData)
-            .await()
+        android.util.Log.d(
+            TAG,
+            "Writing lesson completion: path=${lessonRef.path}, userId=$userId, phaseId=$phaseId, lessonId=$lessonId, isCompleted=$isCompleted"
+        )
+        lessonRef.set(completionData).await()
     }
 
     override suspend fun getCompletedLessonIds(userId: String, phaseId: String): List<String> {
         return try {
+            // Use default Source (Server with Cache fallback) to ensure consistency.
+            // Forcing Source.CACHE was causing partial results when the local cache was incomplete,
+            // leading to "jumping" progression states where lessons appeared uncompleted.
             val snapshot = db.collection("users")
                 .document(userId)
                 .collection("progress")
                 .document(phaseId)
                 .collection("lessons")
                 .whereEqualTo("isCompleted", true)
-                .get()
+                .get() // Removed forced Source.CACHE
                 .await()
-            snapshot.documents.map { it.id }
+
+            val completedLessonIds = snapshot.documents.map { it.id }
+            android.util.Log.d(
+                TAG,
+                "Fetched completed lesson ids: userId=$userId, phaseId=$phaseId, path=users/$userId/progress/$phaseId/lessons, completedLessonIds=$completedLessonIds"
+            )
+            completedLessonIds
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "Error fetching completed lessons for phaseId=$phaseId", e)
             emptyList()
         }
     }
@@ -177,6 +231,32 @@ class FirestoreAppStore : AppStore {
             db.collection("affiliateStats").document(userId).get().await().data
         } catch (e: Exception) {
             null
+        }
+    }
+
+    override suspend fun getUserByReferralCode(code: String): User? {
+        return try {
+            val snapshot = db.collection("users")
+                .whereEqualTo("referralCode", code.uppercase())
+                .limit(1)
+                .get()
+                .await()
+            snapshot.toObjects(User::class.java).firstOrNull()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    override suspend fun getReferralEvents(referrerId: String): List<com.shaplachottor.lab.models.ReferralEvent> {
+        return try {
+            val snapshot = db.collection("referralEvents")
+                .whereEqualTo("referrerId", referrerId)
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .get()
+                .await()
+            snapshot.toObjects(com.shaplachottor.lab.models.ReferralEvent::class.java)
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 }

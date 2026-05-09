@@ -23,28 +23,40 @@ service cloud.firestore {
       }
     }
 
-    // Phase Metadata: Allow students only to increment/decrement bookedSeats by 1
+    // Phase Metadata: Harden seat counter and auto-bootstrap
     match /phases/{phaseId} {
       allow read: if isSignedIn();
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isSignedIn() &&
+      allow create: if isSignedIn() && (isAdmin() || (
+        request.resource.data.bookedSeats == 1 &&
+        getAfter(/databases/$(database)/documents/bookings/$(request.auth.uid + '_' + phaseId)).data.status == 'pending'
+      ));
+      allow update: if isAdmin() || (
+        isSignedIn() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bookedSeats']) &&
-        (request.resource.data.bookedSeats == resource.data.bookedSeats + 1 ||
-         request.resource.data.bookedSeats == resource.data.bookedSeats - 1));
+        (
+          (request.resource.data.bookedSeats == resource.data.bookedSeats + 1 &&
+           getAfter(/databases/$(database)/documents/bookings/$(request.auth.uid + '_' + phaseId)).data.status == 'pending') ||
+          (request.resource.data.bookedSeats == resource.data.bookedSeats - 1 &&
+           getAfter(/databases/$(database)/documents/bookings/$(request.auth.uid + '_' + phaseId)).data.status in ['cancelled', 'expired'])
+        )
+      );
+      allow delete: if isAdmin();
     }
 
-    // Bookings: Managed transitions and expiration
+    // Bookings: Idempotent transitions and secure status updates
     match /bookings/{bookingId} {
       allow read, list: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isSignedIn() &&
                       request.resource.data.userId == request.auth.uid &&
-                      request.resource.data.status == 'pending';
+                      request.resource.data.status == 'pending' &&
+                      bookingId == request.auth.uid + '_' + request.resource.data.phaseId;
       allow update: if isAdmin() || (isOwner(resource.data.userId) &&
                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-                      (request.resource.data.status == 'cancelled' ||
-                       (request.resource.data.status == 'expired' &&
-                        resource.data.expiresAt != 0 &&
-                        request.time.toMillis() > resource.data.expiresAt)));
+                      (
+                        (request.resource.data.status == 'cancelled' && resource.data.status in ['pending', 'approved']) ||
+                        (request.resource.data.status == 'expired' && resource.data.status == 'pending' &&
+                         resource.data.expiresAt != 0 && request.time.toMillis() > resource.data.expiresAt)
+                      ));
     }
 
     // Referral Events: Creation by referred user, conversion status
