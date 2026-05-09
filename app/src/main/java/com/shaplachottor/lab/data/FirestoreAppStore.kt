@@ -12,14 +12,7 @@ class FirestoreAppStore : AppStore {
         private const val TAG = "FirestoreAppStore"
     }
 
-    private val db = FirebaseFirestore.getInstance().apply {
-        val settings = com.google.firebase.firestore.firestoreSettings {
-            setLocalCacheSettings(com.google.firebase.firestore.PersistentCacheSettings.newBuilder()
-                .setSizeBytes(100 * 1024 * 1024) // 100MB
-                .build())
-        }
-        firestoreSettings = settings
-    }
+    private val db = FirebaseFirestore.getInstance()
 
     override suspend fun getPhaseCount(): Int {
         return try {

@@ -1,0 +1,339 @@
+You are a senior Android architect and product engineer working inside Android Studio.
+
+IMPORTANT:
+Before making ANY changes, first read:
+- context.md
+- README.md
+- color-context.md
+
+You MUST understand:
+- the current app architecture
+- the classroom progression model
+- the admin workflow
+- the phase system
+- the educational philosophy
+- the progression psychology
+- existing Firestore structure
+- existing admin-panel behavior
+
+DO NOT redesign the entire app.
+Extend the existing architecture correctly.
+
+--------------------------------------------------
+CORE PRODUCT UNDERSTANDING
+--------------------------------------------------
+
+This app is NOT a fully automated learning system.
+
+It is a HUMAN-GUIDED CLASSROOM SYSTEM.
+
+The learning structure behaves like real-world classrooms:
+
+Phase 1 = Class 1
+Phase 2 = Class 2
+Phase 3 = Class 3
+etc.
+
+A learner cannot automatically move to the next phase.
+
+--------------------------------------------------
+IMPORTANT PROGRESSION PHILOSOPHY
+--------------------------------------------------
+
+The learner:
+- studies lessons
+- completes app lessons
+- practices outside the app
+- gains confidence
+- THEN requests access to the next phase
+
+The teacher/admin:
+- receives booking request
+- evaluates learner capability
+- confirms practical understanding
+- manually approves advancement
+
+This is NOT automatic progression.
+
+The learner INITIATES progression by booking/requesting the next classroom.
+
+--------------------------------------------------
+CRITICAL PRODUCT RULES
+--------------------------------------------------
+
+1. Completing lessons DOES NOT auto-unlock next phase.
+
+2. Completing a phase ONLY means:
+- classroom progress reached 100%
+- learner may now REQUEST next phase access
+
+3. The learner MUST:
+- book/request seat for next phase
+
+4. The admin MUST:
+- manually review
+- manually approve
+- manually unlock next phase
+
+5. The next phase remains LOCKED until admin approval.
+
+--------------------------------------------------
+CURRENT PROBLEM
+--------------------------------------------------
+
+The previous booking system partially existed but became conceptually broken after newer progression logic changes.
+
+Current problems:
+- booking flow disconnected
+- phase unlock logic inconsistent
+- classroom entry bypasses approval flow
+- progression and booking logic became mixed
+- automatic unlock behavior conflicts with teacher-guided philosophy
+
+The app must return to a HUMAN-GUIDED progression model.
+
+--------------------------------------------------
+YOUR TASK
+--------------------------------------------------
+
+Restore and stabilize the booking/request system architecture.
+
+--------------------------------------------------
+REQUIRED USER FLOW
+--------------------------------------------------
+
+PHASE 1:
+- accessible/free
+- learner enters classroom
+- learner completes lessons
+- current phase progress reaches 100%
+
+AFTER COMPLETION:
+- learner sees:
+  "Request Next Phase"
+  OR
+  "Book Your Seat"
+
+NOT:
+- auto unlock
+- direct access
+
+--------------------------------------------------
+BOOKING FLOW
+--------------------------------------------------
+
+STEP 1:
+Learner requests next phase access.
+
+STEP 2:
+Booking stored in Firestore.
+
+STEP 3:
+Admin receives notification/request.
+
+STEP 4:
+Admin evaluates learner:
+- practical understanding
+- external assignments
+- capability
+- readiness
+
+STEP 5:
+Admin manually approves/rejects.
+
+STEP 6:
+ONLY after approval:
+- next phase unlocks
+- learner can enter classroom
+
+--------------------------------------------------
+IMPORTANT PRODUCT UNDERSTANDING
+--------------------------------------------------
+
+This booking system is NOT just seat reservation.
+
+It is:
+- progression approval
+- capability validation
+- teacher-guided advancement
+- educational quality control
+
+The architecture must reflect that philosophy.
+
+--------------------------------------------------
+TECHNICAL REQUIREMENTS
+--------------------------------------------------
+
+1. Read and understand existing:
+- booking models
+- booking repository
+- admin panel
+- Firestore collections
+- notification system
+- phase unlock system
+
+2. Reuse existing infrastructure where possible.
+
+3. DO NOT destroy working code unnecessarily.
+
+4. Restore clean separation between:
+- phase completion
+- booking request
+- admin approval
+- classroom access
+
+--------------------------------------------------
+STATE MODEL
+--------------------------------------------------
+
+Implement clear progression states.
+
+PHASE STATES:
+- LOCKED
+- AVAILABLE
+- IN_PROGRESS
+- COMPLETED
+- REQUEST_PENDING
+- APPROVED
+- REJECTED
+
+BOOKING STATES:
+- PENDING
+- REVIEWING
+- APPROVED
+- REJECTED
+- EXPIRED
+
+--------------------------------------------------
+UI REQUIREMENTS
+--------------------------------------------------
+
+PHASE 1:
+Button:
+"Enter Classroom"
+
+After phase completion:
+Button changes to:
+"Request Next Phase"
+OR
+"Book Your Seat"
+
+Locked future phases:
+- show locked state
+- show prerequisite requirement
+
+Approved phases:
+- show "Enter Classroom"
+
+Pending requests:
+- show:
+"Awaiting Teacher Review"
+
+--------------------------------------------------
+ADMIN PANEL REQUIREMENTS
+--------------------------------------------------
+
+Admin must:
+- see pending requests
+- view learner info
+- view completed phase
+- review capability
+- approve/reject
+- unlock next phase manually
+
+Existing admin-email architecture already exists.
+Extend it properly.
+
+--------------------------------------------------
+NOTIFICATIONS
+--------------------------------------------------
+
+When learner requests next phase:
+- admin receives notification
+
+When admin approves:
+- learner receives unlock update
+
+--------------------------------------------------
+FIRESTORE REQUIREMENTS
+--------------------------------------------------
+
+Verify and stabilize:
+- bookings collection
+- user progression state
+- unlocked phases
+- completed phases
+- current active phase
+- approval state synchronization
+
+--------------------------------------------------
+IMPORTANT ENGINEERING RULES
+--------------------------------------------------
+
+DO NOT:
+- auto unlock phases
+- bypass teacher approval
+- redesign entire architecture
+- hardcode admin logic
+- break MVVM
+- break repository pattern
+
+DO:
+- preserve scalability
+- preserve dynamic phase growth
+- preserve educational philosophy
+- preserve teacher-guided progression
+- stabilize synchronization
+
+--------------------------------------------------
+IMPORTANT UX GOAL
+--------------------------------------------------
+
+The system should feel like:
+- a real classroom
+- guided mentorship
+- structured advancement
+- educational progression
+- teacher-supervised growth
+
+NOT:
+- a generic auto-unlock course app
+
+--------------------------------------------------
+ADD DEBUGGING
+--------------------------------------------------
+
+Add detailed Log.d logs for:
+- phase completion
+- booking request creation
+- booking approval
+- unlock events
+- active phase changes
+- Firestore synchronization
+- admin actions
+
+--------------------------------------------------
+AFTER IMPLEMENTATION
+--------------------------------------------------
+
+Explain:
+1. ROOT architectural problems previously
+2. Why automatic progression conflicted with product philosophy
+3. How the restored booking system works
+4. How learner progression now behaves
+5. How admin approval now controls advancement
+6. What files changed
+7. How scalability is preserved
+
+Then verify complete flow:
+- complete Phase 1
+- request Phase 2
+- admin review
+- admin approval
+- unlock Phase 2
+- enter Phase 2 classroom
+
+IMPORTANT:
+The goal is NOT just adding booking.
+
+The goal is restoring the HUMAN-GUIDED CLASSROOM progression architecture.

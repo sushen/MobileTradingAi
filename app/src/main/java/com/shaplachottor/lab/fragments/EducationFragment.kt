@@ -72,24 +72,29 @@ class EducationFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             val user = appStore.getUser(userId)
-            val unlockedIds = user?.unlockedPhases ?: emptyList()
-            val completedPhaseIds = phaseRepository.getLearningJourneyProgress(user)?.completedPhaseIds.orEmpty()
             val bookings = phaseRepository.getCurrentUserBookings(filtered)
+            val learningJourneyProgress = phaseRepository.getLearningJourneyProgress(user)
+            val phaseSnapshots = phaseRepository.getPhaseProgressionSnapshots(
+                phases = filtered,
+                currentUser = user,
+                bookingStates = bookings,
+                learningJourneyProgress = learningJourneyProgress
+            )
 
             binding.rvCourses.layoutManager = LinearLayoutManager(requireContext())
             binding.rvCourses.adapter = PhaseAdapter(
-                phases = filtered,
-                userUnlockedPhases = unlockedIds,
-                completedPhaseIds = completedPhaseIds,
-                bookingStates = bookings
-            ) { phase ->
-                // Handle click: if unlocked OR FREE go to classroom, else go to phase detail/booking
-                if (phase.type == Phase.TYPE_FREE || unlockedIds.contains(phase.phaseId)) {
-                    val action = EducationFragmentDirections.actionEducationFragmentToClassroomFragment(phase.phaseId)
-                    findNavController().navigate(action)
+                phaseSnapshots = phaseSnapshots
+            ) { snapshot ->
+                val navController = findNavController()
+                if (navController.currentDestination?.id != R.id.educationFragment) {
+                    return@PhaseAdapter
+                }
+                if (snapshot.canEnterClassroom) {
+                    val action = EducationFragmentDirections.actionEducationFragmentToClassroomFragment(snapshot.phase.phaseId)
+                    navController.navigate(action)
                 } else {
-                    val action = EducationFragmentDirections.actionEducationFragmentToPhasesFragment(phase.phaseId)
-                    findNavController().navigate(action)
+                    val action = EducationFragmentDirections.actionEducationFragmentToPhasesFragment(snapshot.phase.phaseId)
+                    navController.navigate(action)
                 }
             }
         }

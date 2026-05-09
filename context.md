@@ -96,7 +96,7 @@
 # Known Issues / Gaps
 
 - Admin authorization is hardcoded to `sushen.biswas.aga@gmail.com` across app code, docs, and Firestore rules instead of using roles or custom claims.
-- The booking dialog currently collects only a WhatsApp number, then passes that same value as both `phoneNumber` and `whatsappNumber`, so the data model, privacy policy, and UI are out of sync.
+- The booking dialog collects only a WhatsApp number for teacher outreach.
 - Booking expiration is still client/lazy driven. A pending request is normalized to `expired` when the owning user reloads bookings, but there is no trusted backend scheduler to release seats globally if the user never returns.
 - Cohort `startDate` is informational only. The UI may show an upcoming date, but repository logic does not block early booking or early classroom unlocks based on start time.
 - Referral codes are derived from the last 6 characters of the Firebase UID, but uniqueness is not enforced even though the docs describe them as unique.

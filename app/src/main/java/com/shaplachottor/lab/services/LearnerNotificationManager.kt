@@ -16,11 +16,15 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.shaplachottor.lab.R
 import com.shaplachottor.lab.activities.MainActivity
+import com.shaplachottor.lab.data.PhaseCatalog
 import com.shaplachottor.lab.models.Booking
 
-class AdminNotificationManager(private val context: Context) {
+class LearnerNotificationManager(
+    private val context: Context,
+    private val userId: String
+) {
     private val db = FirebaseFirestore.getInstance()
-    private val channelId = "admin_booking_requests"
+    private val channelId = "learner_progress_updates"
     private var listenerRegistration: ListenerRegistration? = null
 
     init {
@@ -29,32 +33,39 @@ class AdminNotificationManager(private val context: Context) {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Booking Requests"
-            val descriptionText = "Notifications for new student seat requests"
-            val importance = NotificationManager.IMPORTANCE_HIGH
-            val channel = NotificationChannel(channelId, name, importance).apply {
-                description = descriptionText
+            val channel = NotificationChannel(
+                channelId,
+                "Learning Updates",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Teacher review and classroom unlock updates"
             }
-            val notificationManager: NotificationManager =
-                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
     }
 
-    fun startListeningForRequests() {
+    fun startListening() {
         if (listenerRegistration != null) return
 
         listenerRegistration = db.collection("bookings")
-            .whereEqualTo("status", Booking.STATUS_PENDING)
+            .whereEqualTo("userId", userId)
             .addSnapshotListener { snapshots, e ->
                 if (e != null) {
-                    android.util.Log.e("AdminNotificationManager", "Error listening for bookings: ${e.message}")
+                    android.util.Log.e("LearnerNotificationMgr", "Error listening for learner updates: ${e.message}", e)
                     return@addSnapshotListener
                 }
 
                 for (dc in snapshots!!.documentChanges) {
-                    if (dc.type == DocumentChange.Type.ADDED && !dc.document.metadata.hasPendingWrites()) {
-                        val booking = dc.document.toObject(Booking::class.java)
+                    if (dc.type != DocumentChange.Type.MODIFIED || dc.document.metadata.hasPendingWrites()) {
+                        continue
+                    }
+
+                    val booking = dc.document.toObject(Booking::class.java)
+                    if (booking.status == Booking.STATUS_REVIEWING ||
+                        booking.status == Booking.STATUS_APPROVED ||
+                        booking.status == Booking.STATUS_REJECTED
+                    ) {
                         showNotification(booking)
                     }
                 }
@@ -67,18 +78,28 @@ class AdminNotificationManager(private val context: Context) {
     }
 
     private fun showNotification(booking: Booking) {
+        val phaseTitle = PhaseCatalog.findById(booking.phaseId)?.title ?: booking.phaseId
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
-        val pendingIntent: PendingIntent = PendingIntent.getActivity(
-            context, 0, intent,
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            booking.bookingId.hashCode(),
+            intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val contentText = when (booking.status) {
+            Booking.STATUS_REVIEWING -> "Teacher started reviewing your request for $phaseTitle."
+            Booking.STATUS_APPROVED -> "$phaseTitle is approved. You can enter the classroom now."
+            Booking.STATUS_REJECTED -> "Your request for $phaseTitle was rejected. Continue practicing and try again."
+            else -> return
+        }
+
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.lotus_logo)
-            .setContentTitle("New Phase Request")
-            .setContentText("A learner requested access to ${booking.phaseId}")
+            .setContentTitle("Classroom Update")
+            .setContentText(contentText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

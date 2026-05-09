@@ -13,33 +13,51 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.shaplachottor.lab.R
 import com.shaplachottor.lab.adapters.PhaseAdapter
+import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.databinding.DialogBookingRequestBinding
 import com.shaplachottor.lab.databinding.FragmentPhasesBinding
 import com.shaplachottor.lab.models.Booking
 import com.shaplachottor.lab.models.BookingRequestOutcome
 import com.shaplachottor.lab.models.LearningJourneyProgress
 import com.shaplachottor.lab.models.Phase
+import com.shaplachottor.lab.models.PhaseProgressionSnapshot
+import com.shaplachottor.lab.models.PhaseProgressionState
 import com.shaplachottor.lab.models.User
-import com.shaplachottor.lab.repository.UserRepository
 import com.shaplachottor.lab.repositories.PhaseRepository
 import com.shaplachottor.lab.viewmodels.PhaseViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.Date
 
 class PhasesFragment : Fragment() {
 
+    companion object {
+        private const val TAG = "PhasesFragment"
+    }
+
     private var _binding: FragmentPhasesBinding? = null
     private val binding get() = _binding!!
-    
+
     private lateinit var viewModel: PhaseViewModel
-    private val userRepository = UserRepository()
     private val phaseRepository = PhaseRepository()
+    private val appStore = AppGraph.appStore()
+    private val authProvider = AppGraph.authSessionProvider()
+
     private var currentUser: User? = null
     private var learningJourneyProgress: LearningJourneyProgress? = null
     private var allPhases: List<Phase> = emptyList()
     private var visiblePhases: List<Phase> = emptyList()
     private var currentBookingStates: Map<String, Booking> = emptyMap()
+    private var allPhaseSnapshots: List<PhaseProgressionSnapshot> = emptyList()
+    private var visiblePhaseSnapshots: List<PhaseProgressionSnapshot> = emptyList()
+    private var hasObservedUserStream = false
+    private var hasObservedBookingUpdates = false
+    private var lastUnlockedPhaseIds: Set<String> = emptySet()
+    private var lastBookingStatusByPhase: Map<String, String> = emptyMap()
+    private var refreshUiJob: Job? = null
     private val args: PhasesFragmentArgs by navArgs()
 
     override fun onCreateView(
@@ -52,37 +70,18 @@ class PhasesFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         setupViewModel()
         setupTabs()
         binding.rvPhases.layoutManager = LinearLayoutManager(context)
-        fetchUserAndPhases()
         observeViewModel()
-        
-        handlePassedPhaseId()
-    }
-
-    private fun handlePassedPhaseId() {
-        val targetPhaseId = args.phaseId ?: return
-        viewLifecycleOwner.lifecycleScope.launch {
-            // Ensure phases are loaded
-            val phases = viewModel.phases.value ?: phaseRepository.getPhases()
-            val targetPhase = phases.find { it.phaseId == targetPhaseId }
-            targetPhase?.let { phase ->
-                val tabIndex = when (phase.level) {
-                    "Beginner" -> 0
-                    "Intermediate" -> 1
-                    "Advanced" -> 2
-                    else -> 0
-                }
-                binding.tabLayoutLevels.getTabAt(tabIndex)?.select()
-            }
-        }
+        observeCurrentUser()
+        viewModel.loadPhases()
     }
 
     override fun onResume() {
         super.onResume()
-        fetchUserAndPhases()
+        viewModel.loadPhases()
     }
 
     private fun setupTabs() {
@@ -95,8 +94,8 @@ class PhasesFragment : Fragment() {
             override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab?) {
                 viewModel.filterByLevel(tab?.text.toString())
             }
-            override fun onTabUnselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
-            override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
+            override fun onTabUnselected(tab: com.google.android.material.tabs.TabLayout.Tab?) = Unit
+            override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab?) = Unit
         })
 
         beginnerTab.select()
@@ -111,28 +110,64 @@ class PhasesFragment : Fragment() {
         viewModel = ViewModelProvider(this, factory)[PhaseViewModel::class.java]
     }
 
-    private fun fetchUserAndPhases() {
+    private fun observeCurrentUser() {
+        val userId = authProvider.currentUser()?.uid ?: return
         viewLifecycleOwner.lifecycleScope.launch {
-            currentUser = userRepository.getCurrentUserOrNull()
-            allPhases = phaseRepository.getPhases().sortedBy { it.order }
-            learningJourneyProgress = phaseRepository.getLearningJourneyProgress(currentUser)
-            viewModel.loadPhases()
-            updateProgressSummary()
-            renderPhases()
+            try {
+                appStore.getUserStream(userId).collectLatest { user ->
+                    val previousUnlocked = lastUnlockedPhaseIds
+                    currentUser = user
+                    learningJourneyProgress = phaseRepository.getLearningJourneyProgress(user)
+                    lastUnlockedPhaseIds = user?.unlockedPhases.orEmpty().toSet()
+
+                    if (hasObservedUserStream) {
+                        val newlyUnlocked = lastUnlockedPhaseIds - previousUnlocked
+                        if (newlyUnlocked.isNotEmpty()) {
+                            val unlockedPhase = allPhases.firstOrNull { newlyUnlocked.contains(it.phaseId) }
+                            val unlockedTitle = unlockedPhase?.title ?: newlyUnlocked.first()
+                            android.util.Log.d(
+                                TAG,
+                                "Teacher approval synced to learner: unlockedPhases=$newlyUnlocked, activePhase=${learningJourneyProgress?.activePhaseId}"
+                            )
+                            context?.let {
+                                Toast.makeText(
+                                    it,
+                                    "$unlockedTitle is approved. You can enter the classroom now.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    }
+
+                    hasObservedUserStream = true
+                    refreshUi()
+                }
+            } catch (e: Exception) {
+                android.util.Log.d(TAG, "User stream closed: ${e.message}")
+            }
         }
     }
 
     private fun observeViewModel() {
+        viewModel.allPhases.observe(viewLifecycleOwner) { phases ->
+            allPhases = phases.sortedBy { it.order }
+            handlePassedPhaseId()
+            refreshUi()
+        }
+
         viewModel.phases.observe(viewLifecycleOwner) { phases ->
             visiblePhases = phases
-            renderPhases()
-            updateProgressSummary()
+            refreshUi()
         }
 
         viewModel.bookingStates.observe(viewLifecycleOwner) { bookingStates ->
+            if (hasObservedBookingUpdates) {
+                detectBookingStatusTransitions(bookingStates)
+            }
             currentBookingStates = bookingStates
-            renderPhases()
-            updateProgressSummary()
+            lastBookingStatusByPhase = bookingStates.mapValues { it.value.status }
+            hasObservedBookingUpdates = true
+            refreshUi()
         }
 
         viewModel.bookingResult.observe(viewLifecycleOwner) { result ->
@@ -141,11 +176,9 @@ class PhasesFragment : Fragment() {
                     MaterialAlertDialogBuilder(requireContext())
                         .setTitle("Request Sent")
                         .setMessage(
-                            "Your booking request is pending manual approval. Someone from our team will call you on WhatsApp to confirm the booking. If it is not approved within 15 minutes, it will expire automatically."
+                            "Your request has been sent to the teacher. The next classroom stays locked until the teacher reviews your readiness and approves access."
                         )
-                        .setPositiveButton("OK") { _, _ ->
-                            fetchUserAndPhases()
-                        }
+                        .setPositiveButton("OK", null)
                         .show()
                 }
 
@@ -154,34 +187,33 @@ class PhasesFragment : Fragment() {
                 }
 
                 BookingRequestOutcome.ALREADY_APPROVED -> {
-                    fetchUserAndPhases()
                     Toast.makeText(
                         context,
-                        "This request is already approved. Refreshing your access now.",
+                        "This classroom is already approved. Enter it from the card.",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
 
                 BookingRequestOutcome.NO_SEATS_AVAILABLE -> {
-                    Toast.makeText(context, "No seats available for this phase!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "No seats available for this classroom right now.", Toast.LENGTH_SHORT).show()
                 }
 
                 BookingRequestOutcome.INVALID_CONTACT_INFO -> {
                     Toast.makeText(
                         context,
-                        "Phone number and WhatsApp number are required.",
+                        "WhatsApp number is required.",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
 
                 BookingRequestOutcome.FAILED -> {
-                    Toast.makeText(context, "Booking request failed. Please try again.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Request failed. Please try again.", Toast.LENGTH_SHORT).show()
                 }
 
                 BookingRequestOutcome.PREREQUISITE_NOT_MET -> {
                     Toast.makeText(
                         context,
-                        "Please complete the previous phase before booking this one.",
+                        "Complete the current classroom to 100% before requesting the next phase.",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -189,98 +221,164 @@ class PhasesFragment : Fragment() {
         }
     }
 
-    private fun updateProgressSummary() {
-        binding.tvCurrentTrack.text = "Current Track: ${viewModel.selectedLevel}"
-
-        val overallProgress = learningJourneyProgress?.overallLearningProgress
-        if (overallProgress != null) {
-            binding.tvOverallProgress.text =
-                "Overall Learning: ${overallProgress.percent}% • ${overallProgress.completedPhases}/${overallProgress.totalPhases} phases complete"
-        } else {
-            binding.tvOverallProgress.text = "Overall Learning: 0%"
-        }
-
-        val activePhase = learningJourneyProgress?.currentPhaseProgress?.phase
-        val activePhasePercent = learningJourneyProgress?.currentPhaseProgress?.progress?.percent
-        val nextPhase = allPhases.firstOrNull { phase ->
-            !learningJourneyProgress?.completedPhaseIds.orEmpty().contains(phase.phaseId) &&
-                !currentUser?.unlockedPhases.orEmpty().contains(phase.phaseId) &&
-                phase.type != Phase.TYPE_FREE
-        }
-
-        binding.tvNextPhase.text = when {
-            activePhase != null && activePhasePercent != null ->
-                "Active Phase: ${activePhase.title} ($activePhasePercent%)"
-            nextPhase != null ->
-                "Next Phase: ${nextPhase.title}"
-            overallProgress?.percent == 100 ->
-                "Next Phase: Journey Completed"
-            else ->
-                "Next Phase: Awaiting Unlock"
-        }
-
-        android.util.Log.d(
-            "PhasesFragment",
-            "Progress summary updated: activePhase=${learningJourneyProgress?.activePhaseId}, completedPhases=${learningJourneyProgress?.completedPhaseIds}, unlockedPhases=${currentUser?.unlockedPhases}, overallPercent=${learningJourneyProgress?.overallLearningProgress?.percent}"
-        )
-    }
-
-    private fun renderPhases() {
-        if (_binding == null) return
-
-        binding.rvPhases.adapter = PhaseAdapter(
-            visiblePhases,
-            currentUser?.unlockedPhases ?: emptyList(),
-            learningJourneyProgress?.completedPhaseIds.orEmpty(),
-            currentBookingStates
-        ) { phase ->
-            handlePhaseClick(phase)
-        }
-    }
-
-    private fun handlePhaseClick(phase: Phase) {
-        if (phase.type == Phase.TYPE_FREE || currentUser?.unlockedPhases?.contains(phase.phaseId) == true) {
-            val action = PhasesFragmentDirections.actionPhasesFragmentToClassroomFragment(phase.phaseId)
-            findNavController().navigate(action)
-            return
-        }
-
-        when (currentBookingStates[phase.phaseId]?.status) {
-            Booking.STATUS_PENDING -> {
-                currentBookingStates[phase.phaseId]?.let(::showPendingApprovalDialog)
+    private fun detectBookingStatusTransitions(bookingStates: Map<String, Booking>) {
+        bookingStates.forEach { (phaseId, booking) ->
+            val previousStatus = lastBookingStatusByPhase[phaseId]
+            if (previousStatus == null || previousStatus == booking.status) {
+                return@forEach
             }
 
-            Booking.STATUS_APPROVED -> {
-                fetchUserAndPhases()
-                Toast.makeText(
-                    context,
-                    "Approval detected. Refreshing your unlocked phases.",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+            android.util.Log.d(
+                TAG,
+                "Booking status changed: phaseId=$phaseId, previousStatus=$previousStatus, newStatus=${booking.status}"
+            )
 
-            else -> {
-                if (phase.availableSeats > 0) {
-                    showBookingRequestDialog(phase)
-                } else {
-                    Toast.makeText(context, "No seats available for this phase!", Toast.LENGTH_SHORT).show()
+            when (booking.status) {
+                Booking.STATUS_REVIEWING -> {
+                    context?.let {
+                        Toast.makeText(
+                            it,
+                            "Teacher started reviewing your request for ${phaseTitle(phaseId)}.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+
+                Booking.STATUS_REJECTED -> {
+                    context?.let {
+                        Toast.makeText(
+                            it,
+                            "Your request for ${phaseTitle(phaseId)} was rejected. Continue practicing, then request again.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             }
         }
     }
 
-    private fun showBookingRequestDialog(phase: Phase) {
+    private fun phaseTitle(phaseId: String): String {
+        return allPhases.firstOrNull { it.phaseId == phaseId }?.title ?: phaseId
+    }
+
+    private fun handlePassedPhaseId() {
+        val targetPhaseId = args.phaseId ?: return
+        val targetPhase = allPhases.find { it.phaseId == targetPhaseId } ?: return
+        val tabIndex = when (targetPhase.level) {
+            "Beginner" -> 0
+            "Intermediate" -> 1
+            "Advanced" -> 2
+            else -> 0
+        }
+        _binding?.tabLayoutLevels?.getTabAt(tabIndex)?.select()
+    }
+
+    private fun refreshUi() {
+        refreshUiJob?.cancel()
+        if (_binding == null) return
+
+        refreshUiJob = viewLifecycleOwner.lifecycleScope.launch {
+            allPhaseSnapshots = if (allPhases.isEmpty()) {
+                emptyList()
+            } else {
+                phaseRepository.getPhaseProgressionSnapshots(
+                    phases = allPhases,
+                    currentUser = currentUser,
+                    bookingStates = currentBookingStates,
+                    learningJourneyProgress = learningJourneyProgress
+                )
+            }
+
+            val snapshotsById = allPhaseSnapshots.associateBy { it.phase.phaseId }
+            visiblePhaseSnapshots = visiblePhases.mapNotNull { snapshotsById[it.phaseId] }
+
+            val activeBinding = _binding ?: return@launch
+            activeBinding.rvPhases.adapter = PhaseAdapter(visiblePhaseSnapshots) { snapshot ->
+                handlePhaseClick(snapshot)
+            }
+            updateProgressSummary()
+        }
+    }
+
+    private fun updateProgressSummary() {
+        val activeBinding = _binding ?: return
+        activeBinding.tvCurrentTrack.text = "Current Track: ${viewModel.selectedLevel}"
+
+        val overallProgress = learningJourneyProgress?.overallLearningProgress
+        if (overallProgress != null) {
+            activeBinding.tvOverallProgress.text =
+                "Overall Learning: ${overallProgress.percent}% • ${overallProgress.completedPhases}/${overallProgress.totalPhases} phases complete"
+        } else {
+            activeBinding.tvOverallProgress.text = "Overall Learning: 0%"
+        }
+
+        val activePhase = learningJourneyProgress?.currentPhaseProgress?.phase
+        val activePhasePercent = learningJourneyProgress?.currentPhaseProgress?.progress?.percent
+        val nextRequestable = allPhaseSnapshots.firstOrNull {
+            it.state == PhaseProgressionState.READY_FOR_REQUEST
+        }
+        val pendingRequest = allPhaseSnapshots.firstOrNull { it.state == PhaseProgressionState.REQUEST_PENDING }
+
+        activeBinding.tvNextPhase.text = when {
+            activePhase != null && activePhasePercent != null ->
+                "Active Phase: ${activePhase.title} ($activePhasePercent%)"
+            pendingRequest != null ->
+                "Next Step: Awaiting Teacher Review"
+            nextRequestable != null ->
+                "Next Step: Request ${nextRequestable.phase.title}"
+            overallProgress?.percent == 100 ->
+                "Next Step: Journey Completed"
+            else ->
+                "Next Step: Continue Practicing"
+        }
+
+        android.util.Log.d(
+            TAG,
+            "Progress summary updated: activePhase=${learningJourneyProgress?.activePhaseId}, completedPhases=${learningJourneyProgress?.completedPhaseIds}, unlockedPhases=${currentUser?.unlockedPhases}, overallPercent=${learningJourneyProgress?.overallLearningProgress?.percent}"
+        )
+    }
+
+    private fun handlePhaseClick(snapshot: PhaseProgressionSnapshot) {
+        val phase = snapshot.phase
+        when {
+            snapshot.canEnterClassroom -> {
+                android.util.Log.d(TAG, "Entering classroom: phaseId=${phase.phaseId}, state=${snapshot.state}")
+                val navController = findNavController()
+                if (navController.currentDestination?.id == R.id.phasesFragment) {
+                    val action = PhasesFragmentDirections.actionPhasesFragmentToClassroomFragment(phase.phaseId)
+                    navController.navigate(action)
+                }
+            }
+
+            snapshot.state == PhaseProgressionState.REQUEST_PENDING -> {
+                snapshot.booking?.let(::showPendingApprovalDialog)
+            }
+
+            snapshot.state == PhaseProgressionState.READY_FOR_REQUEST || snapshot.state == PhaseProgressionState.AVAILABLE || snapshot.state == PhaseProgressionState.REJECTED -> {
+                showBookingRequestDialog(snapshot)
+            }
+
+            else -> {
+                context?.let {
+                    Toast.makeText(it, snapshot.statusMessage, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun showBookingRequestDialog(snapshot: PhaseProgressionSnapshot) {
         val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
-        val existingBooking = currentBookingStates[phase.phaseId]
+        val existingBooking = currentBookingStates[snapshot.phase.phaseId]
         if (existingBooking != null) {
             dialogBinding.etWhatsappNumber.setText(existingBooking.whatsappNumber)
         }
 
         val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Request Seat")
+            .setTitle("Book Your Seat")
+            .setMessage("Your teacher will review your readiness before unlocking ${snapshot.phase.title}. Please provide your WhatsApp number.")
             .setView(dialogBinding.root)
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Submit Request", null)
+            .setPositiveButton("Book Class", null)
             .create()
 
         dialog.setOnShowListener {
@@ -294,8 +392,12 @@ class PhasesFragment : Fragment() {
                     return@setOnClickListener
                 }
 
+                android.util.Log.d(
+                    TAG,
+                    "Submitting phase request: phaseId=${snapshot.phase.phaseId}, whatsappNumber=$whatsappNumber"
+                )
                 dialog.dismiss()
-                viewModel.requestSeat(phase, whatsappNumber, whatsappNumber)
+                viewModel.requestSeat(snapshot.phase, whatsappNumber)
             }
         }
 
@@ -303,18 +405,26 @@ class PhasesFragment : Fragment() {
     }
 
     private fun showPendingApprovalDialog(booking: Booking) {
-        val formattedExpiryTime = DateFormat.getTimeFormat(requireContext())
-            .format(Date(booking.expiresAt))
+        val message = when (booking.status) {
+            Booking.STATUS_REVIEWING ->
+                "Teacher is reviewing your readiness for ${phaseTitle(booking.phaseId)}. Access stays locked until approval."
+            else -> {
+                val formattedExpiryTime = DateFormat.getTimeFormat(requireContext())
+                    .format(Date(booking.expiresAt))
+                "Your request is waiting for teacher pickup until $formattedExpiryTime. Access stays locked until approval."
+            }
+        }
+
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Approval Pending")
-            .setMessage(
-                "Your request is waiting for manual approval until $formattedExpiryTime. Someone from our team will call you on WhatsApp to confirm your booking before unlocking this classroom."
-            )
+            .setTitle("Awaiting Teacher Review")
+            .setMessage(message)
             .setPositiveButton("OK", null)
             .show()
     }
 
     override fun onDestroyView() {
+        refreshUiJob?.cancel()
+        refreshUiJob = null
         super.onDestroyView()
         _binding = null
     }

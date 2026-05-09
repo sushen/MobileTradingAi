@@ -1,4 +1,4 @@
-# ShaplaChottor Mobile App
+# Shapla Chottor Mobile App
 **AI Research Lab - Learn. Build. Code.**
 
 A premium Android application focused on AI-driven coding education, structured learning cohorts, and progressive feature unlocks.

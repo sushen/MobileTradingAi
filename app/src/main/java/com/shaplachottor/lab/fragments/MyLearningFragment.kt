@@ -12,6 +12,8 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.shaplachottor.lab.R
 import com.shaplachottor.lab.adapters.PhaseAdapter
+import com.shaplachottor.lab.models.PhaseProgressionSnapshot
+import com.shaplachottor.lab.models.PhaseProgressionState
 import com.shaplachottor.lab.viewmodels.MyLearningViewModel
 
 class MyLearningFragment : Fragment() {
@@ -57,8 +59,11 @@ class MyLearningFragment : Fragment() {
                 )
 
                 binding.btnContinue.setOnClickListener {
-                    val bundle = Bundle().apply { putString("phaseId", phase.phaseId) }
-                    findNavController().navigate(R.id.action_myLearningFragment_to_classroomFragment, bundle)
+                    val navController = findNavController()
+                    if (navController.currentDestination?.id == R.id.myLearningFragment) {
+                        val bundle = Bundle().apply { putString("phaseId", phase.phaseId) }
+                        navController.navigate(R.id.action_myLearningFragment_to_classroomFragment, bundle)
+                    }
                 }
             } else {
                 binding.cardCurrentPhase.visibility = View.GONE
@@ -70,15 +75,27 @@ class MyLearningFragment : Fragment() {
             if (completedPhases.isNotEmpty()) {
                 binding.tvCompletedLabel.visibility = View.VISIBLE
                 binding.rvCompletedPhases.visibility = View.VISIBLE
-                
+
+                val completedSnapshots = completedPhases.map { phase ->
+                    PhaseProgressionSnapshot(
+                        phase = phase,
+                        state = PhaseProgressionState.COMPLETED,
+                        badgeLabel = "COMPLETED",
+                        statusMessage = "Classroom progress reached 100%. Review this class anytime.",
+                        actionLabel = "Review Classroom",
+                        isActionEnabled = true,
+                        canEnterClassroom = true
+                    )
+                }
+
                 val adapter = PhaseAdapter(
-                    phases = completedPhases,
-                    userUnlockedPhases = completedPhases.map { it.phaseId },
-                    completedPhaseIds = completedPhases.map { it.phaseId },
-                    bookingStates = emptyMap()
-                ) { phase ->
-                    val bundle = Bundle().apply { putString("phaseId", phase.phaseId) }
-                    findNavController().navigate(R.id.action_myLearningFragment_to_classroomFragment, bundle)
+                    phaseSnapshots = completedSnapshots
+                ) { snapshot ->
+                    val navController = findNavController()
+                    if (navController.currentDestination?.id == R.id.myLearningFragment) {
+                        val bundle = Bundle().apply { putString("phaseId", snapshot.phase.phaseId) }
+                        navController.navigate(R.id.action_myLearningFragment_to_classroomFragment, bundle)
+                    }
                 }
                 binding.rvCompletedPhases.layoutManager = LinearLayoutManager(requireContext())
                 binding.rvCompletedPhases.adapter = adapter

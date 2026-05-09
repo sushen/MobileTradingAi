@@ -54,18 +54,24 @@ Canonical phase documents:
 - `bookingId`: string, format `${userId}_${phaseId}`
 - `userId`: string
 - `phaseId`: string
-- `phoneNumber`: string
+- `completedPhaseId`: string, the prerequisite phase the learner completed before requesting this one
 - `whatsappNumber`: string
 - `createdAt`: timestamp (epoch millis)
 - `expiresAt`: timestamp (epoch millis)
-- `status`: string, one of `pending`, `approved`, `expired`, `rejected`, `cancelled`
+- `status`: string, one of `pending`, `reviewing`, `approved`, `expired`, `rejected`, `cancelled`
+- `reviewedAt`: timestamp (epoch millis)
+- `approvedAt`: timestamp (epoch millis)
+- `lastUpdatedAt`: timestamp (epoch millis)
+- `reviewedByEmail`: string
 
 Behavior:
-- All phases (except Phase 1) require a booking request.
+- All phases after Phase 1 require a teacher-reviewed booking request.
+- Completing a phase does not unlock the next one. It only makes the next phase requestable.
 - Booking creates a `pending` request and reserves a seat immediately (`bookedSeats` incremented).
+- Admin can move a request to `reviewing` while checking practical readiness and external assignments.
 - If request is `expired`, `rejected`, or `cancelled`, the seat is released (`bookedSeats` decremented).
 - Admin approval adds `phaseId` to `users/{userId}.unlockedPhases`.
-- For `premium` phases, Admin must manually verify payment before clicking "Payment Received" in the Admin Panel.
+- For `premium` phases, Admin must manually verify payment before approval in the Admin Panel.
 
 ## referralEvents/{eventId}
 - `eventId`: `${referrerId}_${referredUserId}`

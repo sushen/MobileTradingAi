@@ -9,6 +9,9 @@ import com.facebook.FacebookSdk
 import com.facebook.LoggingBehavior
 import com.facebook.appevents.AppEventsLogger
 import com.google.firebase.FirebaseApp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.firestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 
@@ -19,6 +22,15 @@ class TradingAIApplication : Application() {
         // 1. Initialize Firebase as early as possible
         try {
             FirebaseApp.initializeApp(this)
+            
+            // Configure Firestore settings before any other Firestore calls
+            val db = FirebaseFirestore.getInstance()
+            val settings = firestoreSettings {
+                setLocalCacheSettings(PersistentCacheSettings.newBuilder()
+                    .setSizeBytes(100 * 1024 * 1024) // 100MB
+                    .build())
+            }
+            db.firestoreSettings = settings
         } catch (e: Exception) {
             Log.e("FIREBASE_ERROR", "Initialization failed", e)
         }

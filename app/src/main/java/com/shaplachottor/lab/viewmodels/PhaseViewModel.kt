@@ -8,6 +8,7 @@ import com.shaplachottor.lab.models.Booking
 import com.shaplachottor.lab.models.BookingRequestResult
 import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.repositories.PhaseRepository
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 class PhaseViewModel(
@@ -27,9 +28,21 @@ class PhaseViewModel(
                 }
             }
         }
+
+        viewModelScope.launch {
+            repository.observeCurrentUserBookings()
+                .catch {
+                    android.util.Log.e("PhaseViewModel", "Booking stream failed", it)
+                    emit(emptyMap())
+                }
+                .collect { bookings ->
+                    _bookingStates.value = bookings
+                }
+        }
     }
 
     private val _allPhases = MutableLiveData<List<Phase>>()
+    val allPhases: LiveData<List<Phase>> = _allPhases
     private val _filteredPhases = MutableLiveData<List<Phase>>()
     val phases: LiveData<List<Phase>> = _filteredPhases
 
@@ -46,7 +59,9 @@ class PhaseViewModel(
         viewModelScope.launch {
             val phases = repository.getPhases()
             _allPhases.value = phases
-            _bookingStates.value = repository.getCurrentUserBookings(phases)
+            if (_bookingStates.value.isNullOrEmpty()) {
+                _bookingStates.value = repository.getCurrentUserBookings(phases)
+            }
             filterByLevel(_selectedLevel)
         }
     }
@@ -59,9 +74,9 @@ class PhaseViewModel(
         }.sortedBy { it.order }
     }
 
-    fun requestSeat(phase: Phase, phoneNumber: String, whatsappNumber: String) {
+    fun requestSeat(phase: Phase, whatsappNumber: String) {
         viewModelScope.launch {
-            _bookingResult.value = repository.requestSeat(phase, phoneNumber, whatsappNumber)
+            _bookingResult.value = repository.requestSeat(phase, whatsappNumber)
             loadPhases()
         }
     }

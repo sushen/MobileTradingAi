@@ -2,24 +2,20 @@ package com.shaplachottor.lab.adapters
 
 import android.graphics.Color
 import android.os.CountDownTimer
-import android.text.format.DateFormat
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.shaplachottor.lab.data.PhaseCatalog
 import com.shaplachottor.lab.databinding.ItemPhaseBinding
 import com.shaplachottor.lab.models.Booking
 import com.shaplachottor.lab.models.Phase
-import java.util.Date
+import com.shaplachottor.lab.models.PhaseProgressionSnapshot
+import com.shaplachottor.lab.models.PhaseProgressionState
 import java.util.Locale
 
 class PhaseAdapter(
-    private val phases: List<Phase>,
-    private val userUnlockedPhases: List<String>,
-    private val completedPhaseIds: List<String>,
-    private val bookingStates: Map<String, Booking>,
-    private val onPhaseClick: (Phase) -> Unit
+    private val phaseSnapshots: List<PhaseProgressionSnapshot>,
+    private val onPhaseClick: (PhaseProgressionSnapshot) -> Unit
 ) : RecyclerView.Adapter<PhaseAdapter.ViewHolder>() {
 
     class ViewHolder(val binding: ItemPhaseBinding) : RecyclerView.ViewHolder(binding.root) {
@@ -44,126 +40,105 @@ class PhaseAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val phase = phases[position]
-        val isUnlocked = userUnlockedPhases.contains(phase.phaseId) || phase.type == Phase.TYPE_FREE
-        val booking = bookingStates[phase.phaseId]
-        val context = holder.binding.root.context
-        
+        val snapshot = phaseSnapshots[position]
+        val phase = snapshot.phase
+        val booking = snapshot.booking
+
         holder.stopTimer()
 
-        // Find missing prerequisite
-        val previousPhaseId = PhaseCatalog.allPhases
-            .firstOrNull { catalogPhase -> catalogPhase.order == phase.order - 1 }
-            ?.phaseId
-        val isMissingPrerequisite = previousPhaseId != null &&
-            !completedPhaseIds.contains(previousPhaseId)
-
         holder.binding.apply {
-            tvPhaseNumber.text = "Phase ${phase.order}"
+            tvPhaseNumber.text = if (phase.type == Phase.TYPE_PREMIUM) {
+                "Class ${phase.order} (Mentored)"
+            } else {
+                "Phase ${phase.order}"
+            }
             tvPhaseTitle.text = phase.title
             tvPhaseLevel.text = "Level: ${phase.level}"
             tvPhaseDescription.text = phase.description
-            tvSeatsAvailable.text = "Seats available: ${phase.availableSeats} / ${phase.totalSeats}"
-
-            val phaseState: String
-            var statusMessage: String
-            val buttonText: String
-            var buttonEnabled = true
-            var badgeColor = "#757575" // Grey for Locked
-
-            when {
-                isUnlocked -> {
-                    phaseState = "UNLOCKED"
-                    statusMessage = if (phase.type == Phase.TYPE_FREE) "Free access for all students." else "Approved and unlocked."
-                    buttonText = "Enter Classroom"
-                    buttonEnabled = true
-                    badgeColor = "#2E7D32" // Shapla Green
-                }
-                booking?.status == Booking.STATUS_PENDING -> {
-                    phaseState = "PENDING"
-                    badgeColor = "#D4AF37" // Soft Gold for importance
-                    buttonText = "Waiting Approval"
-                    buttonEnabled = false
-                    
-                    val remainingMillis = booking.expiresAt - System.currentTimeMillis()
-                    if (remainingMillis > 0) {
-                        holder.timer = object : CountDownTimer(remainingMillis, 1000) {
-                            override fun onTick(millisUntilFinished: Long) {
-                                val minutes = (millisUntilFinished / 1000) / 60
-                                val seconds = (millisUntilFinished / 1000) % 60
-                                tvStatusMessage.text = String.format(Locale.getDefault(), "Wait for WhatsApp call. Expires in %02d:%02d", minutes, seconds)
-                                tvStatusMessage.setTextColor(Color.parseColor("#D4AF37")) // Gold alert
-                            }
-
-                            override fun onFinish() {
-                                tvStatusMessage.text = "Request expired. Please try again."
-                                tvStatusMessage.setTextColor(Color.RED)
-                                tvPhaseStateBadge.text = "EXPIRED"
-                                tvPhaseStateBadge.background.setTint(Color.RED)
-                            }
-                        }.start()
-                        statusMessage = "Calculating time..."
-                    } else {
-                        statusMessage = "Request expired. Please try again."
-                        badgeColor = "#B00020" // Error Red
-                    }
-                }
-                isMissingPrerequisite -> {
-                    phaseState = "LOCKED"
-                    val previousPhaseTitle = PhaseCatalog.findById(previousPhaseId.orEmpty())?.title ?: "the previous phase"
-                    statusMessage = "Complete $previousPhaseTitle before requesting this phase."
-                    buttonText = "Locked by Progress"
-                    buttonEnabled = false
-                }
-                phase.availableSeats <= 0 -> {
-                    phaseState = "LOCKED"
-                    statusMessage = "No seats available for this phase right now."
-                    buttonText = "No Seats Available"
-                    buttonEnabled = false
-                }
-                else -> {
-                    phaseState = "LOCKED"
-                    statusMessage = when (booking?.status) {
-                        Booking.STATUS_REJECTED -> "Your previous request was rejected. You can submit again."
-                        Booking.STATUS_EXPIRED -> "Previous request expired. You can submit again."
-                        else -> "Request access to unlock this phase."
-                    }
-                    buttonText = if (booking?.status == Booking.STATUS_REJECTED || booking?.status == Booking.STATUS_EXPIRED) {
-                        "Request Again"
-                    } else {
-                        "Book Seat"
-                    }
-                    buttonEnabled = true
-                }
+            tvSeatsAvailable.text = if (phase.type == Phase.TYPE_PREMIUM) {
+                "Seat holds: ${phase.availableSeats} remaining out of ${phase.totalSeats}"
+            } else {
+                "Open classroom access"
             }
 
-            tvPhaseStateBadge.text = phaseState
-            tvPhaseStateBadge.background.setTint(Color.parseColor(badgeColor))
-            
-            // Premium Metadata
+            tvPhaseStateBadge.text = snapshot.badgeLabel
+            tvPhaseStateBadge.background.setTint(resolveBadgeColor(snapshot.state))
+
             if (phase.type == Phase.TYPE_PREMIUM) {
                 tvPriceTag.visibility = View.VISIBLE
                 tvPriceTag.text = "${phase.currency} ${phase.price}"
-                tvPhaseNumber.text = "Cohort ${phase.order} (Premium)"
             } else {
                 tvPriceTag.visibility = View.GONE
-                tvPhaseNumber.text = "Phase ${phase.order}"
             }
 
-            // Start Date Visibility
-            if (phase.startDate > System.currentTimeMillis()) {
-                val dateStr = DateFormat.getDateFormat(context).format(Date(phase.startDate))
-                statusMessage = "Next Cohort starts: $dateStr"
+            tvStatusMessage.text = snapshot.statusMessage
+            tvStatusMessage.setTextColor(
+                if (snapshot.state == PhaseProgressionState.REQUEST_PENDING) {
+                    Color.parseColor("#D4AF37")
+                } else {
+                    Color.parseColor("#0F4C5C")
+                }
+            )
+
+            btnAction.text = snapshot.actionLabel
+            btnAction.isEnabled = snapshot.isActionEnabled
+
+            if (booking?.status == Booking.STATUS_PENDING && booking.expiresAt > System.currentTimeMillis()) {
+                startPendingCountdown(holder, booking)
             }
 
-            tvStatusMessage.text = statusMessage
-            btnAction.text = buttonText
-            btnAction.isEnabled = buttonEnabled
-
-            btnAction.setOnClickListener { onPhaseClick(phase) }
-            root.setOnClickListener { if (isUnlocked) onPhaseClick(phase) }
+            btnAction.setOnClickListener { onPhaseClick(snapshot) }
+            root.setOnClickListener {
+                if (snapshot.canEnterClassroom || snapshot.isActionEnabled) {
+                    onPhaseClick(snapshot)
+                }
+            }
         }
     }
 
-    override fun getItemCount() = phases.size
+    override fun getItemCount() = phaseSnapshots.size
+
+    private fun resolveBadgeColor(state: PhaseProgressionState): Int {
+        return when (state) {
+            PhaseProgressionState.LOCKED -> Color.parseColor("#757575")
+            PhaseProgressionState.AVAILABLE -> Color.parseColor("#0F4C5C")
+            PhaseProgressionState.READY_FOR_REQUEST -> Color.parseColor("#0F4C5C")
+            PhaseProgressionState.IN_PROGRESS -> Color.parseColor("#2E7D32")
+            PhaseProgressionState.COMPLETED -> Color.parseColor("#2E7D32")
+            PhaseProgressionState.REQUEST_PENDING -> Color.parseColor("#D4AF37")
+            PhaseProgressionState.APPROVED -> Color.parseColor("#2E7D32")
+            PhaseProgressionState.REJECTED -> Color.parseColor("#B00020")
+        }
+    }
+
+    private fun startPendingCountdown(holder: ViewHolder, booking: Booking) {
+        holder.binding.apply {
+            val remainingMillis = booking.expiresAt - System.currentTimeMillis()
+            if (remainingMillis <= 0L) {
+                tvStatusMessage.text = "Pending request expired. Submit again when ready."
+                tvPhaseStateBadge.text = "EXPIRED"
+                tvPhaseStateBadge.background.setTint(Color.parseColor("#B00020"))
+                return
+            }
+
+            holder.timer = object : CountDownTimer(remainingMillis, 1000) {
+                override fun onTick(millisUntilFinished: Long) {
+                    val minutes = (millisUntilFinished / 1000) / 60
+                    val seconds = (millisUntilFinished / 1000) % 60
+                    tvStatusMessage.text = String.format(
+                        Locale.getDefault(),
+                        "Awaiting teacher pickup. Seat hold expires in %02d:%02d",
+                        minutes,
+                        seconds
+                    )
+                }
+
+                override fun onFinish() {
+                    tvStatusMessage.text = "Pending request expired. Submit again when ready."
+                    tvPhaseStateBadge.text = "EXPIRED"
+                    tvPhaseStateBadge.background.setTint(Color.parseColor("#B00020"))
+                }
+            }.start()
+        }
+    }
 }

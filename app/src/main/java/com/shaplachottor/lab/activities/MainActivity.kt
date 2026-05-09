@@ -13,11 +13,13 @@ import com.shaplachottor.lab.R
 import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.databinding.ActivityMainBinding
 import com.shaplachottor.lab.services.AdminNotificationManager
+import com.shaplachottor.lab.services.LearnerNotificationManager
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val authProvider = AppGraph.authSessionProvider()
     private var adminNotificationManager: AdminNotificationManager? = null
+    private var learnerNotificationManager: LearnerNotificationManager? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -44,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         adminNotificationManager?.stopListening()
+        learnerNotificationManager?.stopListening()
     }
 
     private fun askNotificationPermission() {
@@ -66,6 +69,14 @@ class MainActivity : AppCompatActivity() {
                 adminNotificationManager = AdminNotificationManager(this)
             }
             adminNotificationManager?.startListeningForRequests()
+        }
+
+        val userId = authProvider.currentUser()?.uid
+        if (userId != null) {
+            if (learnerNotificationManager == null) {
+                learnerNotificationManager = LearnerNotificationManager(this, userId)
+            }
+            learnerNotificationManager?.startListening()
         }
     }
 }

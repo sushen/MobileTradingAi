@@ -1,0 +1,300 @@
+BOOKING SYSTEM CORRECTION + PROGRESSION FLOW RESTORATION
+
+PROJECT CONTEXT:
+This Android application already contains both:
+1. Old booking system logic
+2. New learning journey progression system
+
+The goal is NOT to remove the new progression system.
+
+The goal is:
+RESTORE the old booking approval workflow INSIDE the new progression architecture.
+
+━━━━━━━━━━━━━━━━━━━
+EXPECTED BEHAVIOR
+━━━━━━━━━━━━━━━━━━━
+
+CURRENT INTENDED FLOW:
+
+Phase 1
+→ User studies normally
+→ User completes lessons
+→ User reaches 100%
+→ User can independently finish the phase
+
+BUT:
+
+Before entering Phase 2 classroom:
+→ User MUST request a seat again
+→ Request goes to admin/teacher review
+→ Admin manually approves
+→ Only then classroom unlocks
+
+This same logic must apply for:
+Phase 2 → Phase 3
+Phase 3 → Phase 4
+etc.
+
+━━━━━━━━━━━━━━━━━━━
+VERY IMPORTANT
+━━━━━━━━━━━━━━━━━━━
+
+The learner progression should remain automatic.
+
+BUT classroom access for the NEXT phase must ALWAYS require:
+MANUAL ADMIN APPROVAL.
+
+This is the same philosophy as the old booking system.
+
+━━━━━━━━━━━━━━━━━━━
+CORE BUSINESS RULE
+━━━━━━━━━━━━━━━━━━━
+
+COMPLETING A PHASE
+DOES NOT AUTOMATICALLY UNLOCK THE NEXT CLASSROOM.
+
+Instead:
+
+100% Completion
+→ Eligible to request next phase
+→ Submit booking request
+→ Admin review
+→ Approval
+→ Add phaseId into unlockedPhases
+→ Classroom becomes accessible
+
+━━━━━━━━━━━━━━━━━━━
+CURRENT PROBLEM
+━━━━━━━━━━━━━━━━━━━
+
+The new learning journey system appears to partially bypass the old booking approval workflow.
+
+Some progression logic is automatically allowing next classroom access without requiring:
+- booking request
+- teacher review
+- admin approval
+
+This behavior is incorrect.
+
+━━━━━━━━━━━━━━━━━━━
+REQUIRED SYSTEM BEHAVIOR
+━━━━━━━━━━━━━━━━━━━
+
+RULE #1
+A user can complete the current phase independently.
+
+RULE #2
+Completion progress should update normally.
+
+RULE #3
+The NEXT phase classroom must remain locked until booking approval.
+
+RULE #4
+Every new classroom entry requires:
+- seat request
+- teacher/admin review
+- approval
+
+RULE #5
+Approval must still depend on:
+user.unlockedPhases
+
+━━━━━━━━━━━━━━━━━━━
+CRITICAL ACCESS CONTROL RULE
+━━━━━━━━━━━━━━━━━━━
+
+The ONLY valid classroom access source must be:
+
+user.unlockedPhases
+
+NOT:
+- lesson completion alone
+- progression snapshots alone
+- currentPhaseProgress alone
+- overallLearningProgress alone
+
+━━━━━━━━━━━━━━━━━━━
+FILES TO AUDIT
+━━━━━━━━━━━━━━━━━━━
+
+IMPORTANT:
+Audit ALL logic interactions between these files.
+
+MAIN FILES:
+
+1.
+Admin approval workflow:
+AdminPanelFragment.kt
+
+2.
+Booking and progression UI:
+PhasesFragment.kt
+
+3.
+Classroom access validation:
+ClassroomFragment.kt
+
+4.
+Learning progression:
+LessonDetailFragment.kt
+MyLearningFragment.kt
+HomeFragment.kt
+
+5.
+Education navigation:
+EducationFragment.kt
+
+6.
+Repository/business logic:
+PhaseRepository.kt
+PhaseViewModel.kt
+ClassroomViewModel.kt
+
+━━━━━━━━━━━━━━━━━━━
+ADMIN ACCOUNT
+━━━━━━━━━━━━━━━━━━━
+
+Admin email currently hardcoded:
+
+sushen.biswas.aga@gmail.com
+
+Do NOT break existing admin panel behavior.
+
+━━━━━━━━━━━━━━━━━━━
+OLD SYSTEM BEHAVIOR THAT MUST BE PRESERVED
+━━━━━━━━━━━━━━━━━━━
+
+OLD SYSTEM LOGIC:
+
+APPROVED BOOKING
+→ Add phaseId to unlockedPhases
+
+CANCELLED BOOKING
+→ Remove phaseId from unlockedPhases
+
+CLASSROOM ACCESS
+→ Depends ONLY on unlockedPhases
+
+This behavior MUST remain intact.
+
+━━━━━━━━━━━━━━━━━━━
+NEW SYSTEM FEATURES THAT MUST REMAIN
+━━━━━━━━━━━━━━━━━━━
+
+KEEP:
+- learning progress tracking
+- lesson completion tracking
+- progress indicators
+- phase progression UI
+- teacher review stage
+- premium/free phase separation
+- progression snapshots
+- learning journey analytics
+
+DO NOT remove these systems.
+
+━━━━━━━━━━━━━━━━━━━
+EXPECTED FINAL FLOW
+━━━━━━━━━━━━━━━━━━━
+
+CORRECT FLOW SHOULD BE:
+
+User completes Phase 1
+→ Phase 1 marked completed
+→ User becomes eligible for Phase 2 request
+→ User presses "Book Class"
+→ Booking status = PENDING
+→ Admin sees request in AdminPanelFragment
+→ Admin starts review
+→ Booking status = REVIEWING
+→ Admin approves
+→ Repository updates unlockedPhases
+→ Phase 2 classroom unlocks
+
+WITHOUT approval:
+→ User MUST NOT enter Phase 2 classroom
+
+━━━━━━━━━━━━━━━━━━━
+CRITICAL DEBUG TASKS
+━━━━━━━━━━━━━━━━━━━
+
+Audit and verify:
+
+1.
+Where classroom access is granted
+
+2.
+Where unlockedPhases is updated
+
+3.
+Whether progression snapshots bypass unlockedPhases
+
+4.
+Whether canEnterClassroom incorrectly returns true
+
+5.
+Whether learning progress automatically unlocks phases
+
+6.
+Whether approveBooking() still updates unlockedPhases
+
+7.
+Whether PhaseProgressionSnapshot state logic bypasses booking logic
+
+8.
+Whether currentPhaseProgress accidentally unlocks classrooms
+
+━━━━━━━━━━━━━━━━━━━
+REQUIRED OUTPUT
+━━━━━━━━━━━━━━━━━━━
+
+Provide:
+
+1.
+Root cause analysis
+
+2.
+Exact broken logic chain
+
+3.
+Files responsible
+
+4.
+Code sections causing bypass
+
+5.
+Recommended architectural correction
+
+6.
+Final corrected flow explanation
+
+7.
+Safe implementation strategy
+
+8.
+Regression risks
+
+9.
+Step-by-step fix plan
+
+10.
+Final validation checklist
+
+━━━━━━━━━━━━━━━━━━━
+IMPORTANT IMPLEMENTATION RULE
+━━━━━━━━━━━━━━━━━━━
+
+DO NOT rewrite the whole system.
+
+DO NOT remove the new progression engine.
+
+ONLY restore the mandatory booking approval gate
+between phases.
+
+The final architecture should be:
+
+Learning Progression
++
+Manual Classroom Unlock Approval
+
+NOT automatic classroom progression.
