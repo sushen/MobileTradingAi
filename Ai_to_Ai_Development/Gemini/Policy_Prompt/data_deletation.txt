@@ -1,0 +1,227 @@
+You are working on an Android app called Shapla Chottor Lab.
+
+Tech stack
+- Kotlin
+- XMLViewBinding
+- MVVM
+- Repository pattern
+- Firebase Authentication
+- Cloud Firestore
+- Coroutines
+- AppGraph service locator
+
+Current situation
+Google Play rejected the app because Firebase Authentication collects email addresses and the app now needs proper account deletion support for policy compliance.
+
+Goal
+Implement a COMPLETE in-app “Delete My Account” flow inside ProfileFragment.
+
+IMPORTANT CONTEXT
+- Users authenticate using
+  - Google Sign-In
+  - Firebase emailpassword auth
+- User data is minimal
+  - email
+  - profile
+  - learning progress
+  - bookings
+  - affiliate stats
+- The app should respect user privacy and permanently delete user data when requested.
+- After deletion, the app must sign the user out and return to LoginActivity.
+- Firebase may throw “requires recent login” errors, so handle this gracefully.
+
+Existing file
+ProfileFragment.kt
+
+Current ProfileFragment already contains
+- logout button
+- privacy policy button
+- referral code UI
+- Google sign-out flow
+- navigateToLogin()
+
+TASKS TO IMPLEMENT
+
+==================================================
+1. ADD DELETE ACCOUNT BUTTON
+==================================================
+
+Inside fragment_profile.xml
+
+Add a button
+
+- id btnDeleteAccount
+- text “Delete My Account”
+
+Place it below logout or privacy policy.
+
+==================================================
+2. ADD CLICK LISTENER
+==================================================
+
+Inside ProfileFragment.onViewCreated()
+
+Add
+
+binding.btnDeleteAccount.setOnClickListener {
+    showDeleteAccountDialog()
+}
+
+==================================================
+3. CREATE CONFIRMATION DIALOG
+==================================================
+
+Create
+
+private fun showDeleteAccountDialog()
+
+Dialog requirements
+- Explain permanent deletion
+- Mention
+  - account
+  - learning progress
+  - bookings
+  - affiliate data
+- Warn
+  “This action cannot be undone.”
+
+Buttons
+- Delete
+- Cancel
+
+Delete button triggers
+deleteAccount()
+
+==================================================
+4. IMPLEMENT DELETE ACCOUNT FLOW
+==================================================
+
+Create
+
+private fun deleteAccount()
+
+Flow requirements
+
+STEP 1
+Get current Firebase user.
+
+STEP 2
+Delete Firestore data.
+
+Collections to clean
+- users{uid}
+- affiliateStats{uid}
+
+Attempt cleanup for
+- bookings
+- referralEvents
+- progress subcollections
+
+Use
+- batch delete if possible
+- otherwise sequential deletion
+
+STEP 3
+Delete Firebase Authentication account
+currentUser.delete()
+
+STEP 4
+Sign out completely
+- Firebase Auth signOut
+- GoogleSignInClient signOut
+
+STEP 5
+Navigate to LoginActivity.
+
+==================================================
+5. HANDLE RECENT LOGIN ERROR
+==================================================
+
+If Firebase throws
+FirebaseAuthRecentLoginRequiredException
+
+Show a user-friendly dialog
+
+“For security reasons, please sign in again before deleting your account.”
+
+Then
+- sign user out
+- redirect to LoginActivity
+
+Do NOT crash.
+
+==================================================
+6. USE COROUTINES
+==================================================
+
+Use
+- lifecycleScope.launch
+- suspend-friendly approach
+- kotlinx.coroutines.tasks.await
+
+Add required imports.
+
+==================================================
+7. UX REQUIREMENTS
+==================================================
+
+During deletion
+- disable delete button
+- optionally show loading state
+
+On success
+Show Toast
+“Account deleted successfully”
+
+On failure
+Show readable Toast error.
+
+==================================================
+8. CODE QUALITY REQUIREMENTS
+==================================================
+
+- Keep architecture clean
+- Reuse existing navigateToLogin()
+- Reuse existing Google sign-out logic where possible
+- Avoid duplicate code
+- Use proper null safety
+- Do not break existing ProfileFragment features
+
+==================================================
+9. IMPORTANT POLICY REQUIREMENT
+==================================================
+
+The implementation must satisfy Google Play’s account deletion requirement for apps using Firebase Authentication and email collection.
+
+==================================================
+10. BONUS IF POSSIBLE
+==================================================
+
+If architecture allows
+move deletion logic into UserRepository or AuthRepository for cleaner separation.
+
+But prioritize working implementation first.
+
+==================================================
+11. IMPORTANT FIREBASE NOTE
+==================================================
+
+Firebase requires recent authentication before delete() succeeds
+httpsfirebase.google.comdocsauthandroidmanage-users
+
+Handle this safely.
+
+==================================================
+12. OUTPUT FORMAT
+==================================================
+
+Provide
+1. Updated XML snippet
+2. Full Kotlin implementation
+3. Required imports
+4. Any helper methods
+5. Any Firestore cleanup helper
+6. Explanation of integration points
+
+Do NOT give pseudo code.
+Give production-ready Kotlin code.
