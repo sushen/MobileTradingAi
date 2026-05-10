@@ -308,6 +308,19 @@
             app:icon="@android:drawable/ic_menu_close_clear_cancel"
             app:iconTint="?attr/colorError" />
 
+        <!-- Delete Account Action -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_delete_account"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Delete My Account"
+            android:textColor="?attr/colorError"
+            android:alpha="0.7"
+            app:icon="@android:drawable/ic_menu_delete"
+            app:iconTint="?attr/colorError" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

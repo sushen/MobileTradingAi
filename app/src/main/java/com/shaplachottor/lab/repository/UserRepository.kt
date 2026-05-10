@@ -4,6 +4,7 @@ import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.data.AppStore
 import com.shaplachottor.lab.data.AuthSessionProvider
 import com.shaplachottor.lab.models.User
+import kotlinx.coroutines.tasks.await
 
 class UserRepository(
     private val authSessionProvider: AuthSessionProvider = AppGraph.authSessionProvider(),
@@ -12,6 +13,18 @@ class UserRepository(
     suspend fun getCurrentUserOrNull(): User? {
         val uid = authSessionProvider.currentUser()?.uid ?: return null
         return appStore.getUser(uid)
+    }
+
+    suspend fun deleteAccount() {
+        val user = authSessionProvider.currentUser() ?: throw Exception("No user logged in")
+        val uid = user.uid
+
+        // 1. Delete Firestore data first
+        appStore.deleteUserData(uid)
+
+        // 2. Delete Firebase Auth account
+        // This may throw FirebaseAuthRecentLoginRequiredException
+        user.delete().await()
     }
 
     suspend fun saveUser(user: User) {

@@ -252,4 +252,52 @@ class FirestoreAppStore : AppStore {
             emptyList()
         }
     }
+
+    override suspend fun deleteUserData(userId: String) {
+        val batch = db.batch()
+
+        // 1. Delete user document
+        batch.delete(db.collection("users").document(userId))
+
+        // 2. Delete affiliate stats
+        batch.delete(db.collection("affiliateStats").document(userId))
+
+        // 3. Find and delete bookings
+        val bookings = db.collection("bookings")
+            .whereEqualTo("userId", userId)
+            .get().await()
+        for (doc in bookings.documents) {
+            batch.delete(doc.reference)
+        }
+
+        // 4. Find and delete referral events (where user is referrer)
+        val referralEventsAsReferrer = db.collection("referralEvents")
+            .whereEqualTo("referrerId", userId)
+            .get().await()
+        for (doc in referralEventsAsReferrer.documents) {
+            batch.delete(doc.reference)
+        }
+
+        // 5. Find and delete referral events (where user is referred)
+        val referralEventsAsReferred = db.collection("referralEvents")
+            .whereEqualTo("referredUserId", userId)
+            .get().await()
+        for (doc in referralEventsAsReferred.documents) {
+            batch.delete(doc.reference)
+        }
+
+        // 6. Delete progress subcollection (lessons)
+        // Since Firestore doesn't support recursive delete in client SDK, 
+        // we find the documents in the progress subcollection.
+        val progressDocs = db.collection("users").document(userId).collection("progress").get().await()
+        for (progressDoc in progressDocs.documents) {
+            val lessons = progressDoc.reference.collection("lessons").get().await()
+            for (lessonDoc in lessons.documents) {
+                batch.delete(lessonDoc.reference)
+            }
+            batch.delete(progressDoc.reference)
+        }
+
+        batch.commit().await()
+    }
 }

@@ -23,4 +23,5 @@ interface AppStore {
     suspend fun getAffiliateStats(userId: String): Map<String, Any>?
     suspend fun getUserByReferralCode(code: String): User?
     suspend fun getReferralEvents(referrerId: String): List<com.shaplachottor.lab.models.ReferralEvent>
+    suspend fun deleteUserData(userId: String)
 }
