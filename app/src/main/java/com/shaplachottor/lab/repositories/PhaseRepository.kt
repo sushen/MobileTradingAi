@@ -686,16 +686,19 @@ open class PhaseRepository(
         val userId = authSessionProvider.currentUser()?.uid ?: return false
         return try {
             val user = appStore.getUser(userId) ?: return false
-            val phase = getPhaseById(phaseId) ?: return false
 
-            // Rule 1: Phase 1 (FREE) is always accessible once started.
-            // ALL other phases require explicit presence in unlockedPhases via admin approval.
-            val isUnlocked = (phaseId == PhaseCatalog.PHASE1 && phase.type == Phase.TYPE_FREE) || 
-                user.unlockedPhases.contains(phaseId)
+            // Rule: Phase access requires explicit presence in unlockedPhases via admin approval,
+            // OR a valid approved booking as a fallback.
+            val isUnlocked = user.unlockedPhases.contains(phaseId)
 
             if (!isUnlocked) {
-                android.util.Log.d(TAG, "Access denied to phaseId=$phaseId because the phase is not unlocked for userId=$userId")
-                return false
+                // If not in unlockedPhases, check for a valid approved booking as a fallback
+                val bookingId = "${userId}_${phaseId}"
+                val booking = appStore.getBooking(bookingId)
+                if (booking?.status != Booking.STATUS_APPROVED) {
+                    android.util.Log.d(TAG, "Access denied to phaseId=$phaseId because the phase is not unlocked and no approved booking found for userId=$userId")
+                    return false
+                }
             }
 
             // Rule 2: Sequential Completion Check
@@ -723,12 +726,6 @@ open class PhaseRepository(
                 }
             }
             
-            // LOGIC CHECK: Final validation of unlockedPhases
-            if (phaseId != PhaseCatalog.PHASE1 && !user.unlockedPhases.contains(phaseId)) {
-                android.util.Log.w(TAG, "Access rejected: phaseId=$phaseId not in unlockedPhases and not phase1")
-                return false
-            }
-
             true
         } catch (e: Exception) {
             android.util.Log.e(TAG, "canAccessPhase failed for phaseId=$phaseId", e)
@@ -909,8 +906,9 @@ open class PhaseRepository(
     }
 
     private fun isPhaseAccessible(phase: Phase, user: User): Boolean {
-        return (phase.phaseId == PhaseCatalog.PHASE1 && phase.type == Phase.TYPE_FREE) || 
-            user.unlockedPhases.contains(phase.phaseId)
+        // Allow access if unlockedPhases contains the ID.
+        // The booking status fallback is handled in canAccessPhase(String) for lesson-level access.
+        return user.unlockedPhases.contains(phase.phaseId)
     }
 
     private fun applyLessonProgressWrites(

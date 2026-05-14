@@ -16,12 +16,7 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getPhaseCount(): Int {
         return try {
-            val snapshot = db.collection("phases").get(com.google.firebase.firestore.Source.CACHE).await()
-            if (snapshot.isEmpty) {
-                db.collection("phases").get(com.google.firebase.firestore.Source.SERVER).await().size()
-            } else {
-                snapshot.size()
-            }
+            db.collection("phases").get().await().size()
         } catch (e: Exception) {
             0
         }
@@ -33,12 +28,7 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getPhases(): List<Phase> {
         return try {
-            val snapshot = db.collection("phases").get(com.google.firebase.firestore.Source.CACHE).await()
-            if (snapshot.isEmpty) {
-                db.collection("phases").get(com.google.firebase.firestore.Source.SERVER).await().toObjects(Phase::class.java)
-            } else {
-                snapshot.toObjects(Phase::class.java)
-            }
+            db.collection("phases").get().await().toObjects(Phase::class.java)
         } catch (e: Exception) {
             emptyList()
         }
@@ -46,12 +36,7 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getPhase(phaseId: String): Phase? {
         return try {
-            val doc = db.collection("phases").document(phaseId).get(com.google.firebase.firestore.Source.CACHE).await()
-            if (!doc.exists()) {
-                db.collection("phases").document(phaseId).get(com.google.firebase.firestore.Source.SERVER).await().toObject(Phase::class.java)
-            } else {
-                doc.toObject(Phase::class.java)
-            }
+            db.collection("phases").document(phaseId).get().await().toObject(Phase::class.java)
         } catch (e: Exception) {
             null
         }
@@ -59,12 +44,7 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getUser(userId: String): User? {
         return try {
-            val doc = db.collection("users").document(userId).get(com.google.firebase.firestore.Source.CACHE).await()
-            if (!doc.exists()) {
-                db.collection("users").document(userId).get(com.google.firebase.firestore.Source.SERVER).await().toObject(User::class.java)
-            } else {
-                doc.toObject(User::class.java)
-            }
+            db.collection("users").document(userId).get().await().toObject(User::class.java)
         } catch (e: Exception) {
             null
         }
@@ -88,12 +68,7 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getBooking(bookingId: String): Booking? {
         return try {
-            val doc = db.collection("bookings").document(bookingId).get(com.google.firebase.firestore.Source.CACHE).await()
-            if (!doc.exists()) {
-                db.collection("bookings").document(bookingId).get(com.google.firebase.firestore.Source.SERVER).await().toObject(Booking::class.java)
-            } else {
-                doc.toObject(Booking::class.java)
-            }
+            db.collection("bookings").document(bookingId).get().await().toObject(Booking::class.java)
         } catch (e: Exception) {
             null
         }
@@ -105,16 +80,9 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getPendingBookings(): List<Booking> {
         return try {
-            val snapshot = db.collection("bookings")
+            db.collection("bookings")
                 .whereEqualTo("status", Booking.STATUS_PENDING)
-                .get(com.google.firebase.firestore.Source.CACHE).await()
-            if (snapshot.isEmpty) {
-                 db.collection("bookings")
-                    .whereEqualTo("status", Booking.STATUS_PENDING)
-                    .get(com.google.firebase.firestore.Source.SERVER).await().toObjects(Booking::class.java)
-            } else {
-                snapshot.toObjects(Booking::class.java)
-            }
+                .get().await().toObjects(Booking::class.java)
         } catch (e: Exception) {
             emptyList()
         }
@@ -122,12 +90,7 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getAllBookings(): List<Booking> {
         return try {
-            val snapshot = db.collection("bookings").get(com.google.firebase.firestore.Source.CACHE).await()
-             if (snapshot.isEmpty) {
-                db.collection("bookings").get(com.google.firebase.firestore.Source.SERVER).await().toObjects(Booking::class.java)
-            } else {
-                snapshot.toObjects(Booking::class.java)
-            }
+            db.collection("bookings").get().await().toObjects(Booking::class.java)
         } catch (e: Exception) {
             emptyList()
         }

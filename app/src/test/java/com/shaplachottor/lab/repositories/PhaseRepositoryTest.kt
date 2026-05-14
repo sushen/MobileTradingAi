@@ -52,7 +52,7 @@ class PhaseRepositoryTest {
         coEvery { appStore.getUser("test_user_id") } returns user
 
         // Act
-        val result = repository.requestSeat(phase2, "123", "456")
+        val result = repository.requestSeat(phase2, "123")
 
         // Assert
         assertEquals(BookingRequestOutcome.PREREQUISITE_NOT_MET, result.outcome)

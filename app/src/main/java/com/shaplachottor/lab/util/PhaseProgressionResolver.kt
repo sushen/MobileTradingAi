@@ -25,10 +25,10 @@ object PhaseProgressionResolver {
         val progress = phaseProgress ?: PhaseLearningProgress(phaseId = phase.phaseId)
         val isCompleted = completedPhaseIds.contains(phase.phaseId) || progress.isCompleted
         
-        // CORE ACCESS RULE: Only unlockedPhases or being the very first FREE phase allows entry.
-        // Booking status is a signal for UI state, but NOT the source of truth for access.
+        // CORE ACCESS RULE: Phase access is granted if it's in unlockedPhases OR if the booking is APPROVED.
+        // This provides redundancy against sync delays between the 'users' and 'bookings' collections.
         val isUnlocked = user?.unlockedPhases.orEmpty().contains(phase.phaseId) ||
-            (phase.phaseId == "phase1" && phase.type == Phase.TYPE_FREE)
+            booking?.status == Booking.STATUS_APPROVED
 
         val prerequisiteMet = prerequisitePhase == null ||
             completedPhaseIds.contains(prerequisitePhase.phaseId)
@@ -57,29 +57,21 @@ object PhaseProgressionResolver {
                 )
             }
 
-            // Active / In Progress (must be unlocked AND have progress)
-            progress.completedLessons > 0 && isUnlocked -> {
-                PhaseProgressionSnapshot(
-                    phase = phase,
-                    state = PhaseProgressionState.IN_PROGRESS,
-                    badgeLabel = "IN PROGRESS",
-                    statusMessage = "Keep learning here, then practice outside the app before requesting the next phase.$startDateSuffix",
-                    actionLabel = "Enter Classroom",
-                    isActionEnabled = true,
-                    canEnterClassroom = true,
-                    phaseProgress = progress,
-                    booking = booking,
-                    prerequisitePhase = prerequisitePhase
-                )
-            }
+            // CORE ACCESS: If unlocked, always allow entry regardless of booking status details
+            isUnlocked -> {
+                val state = if (progress.completedLessons > 0) PhaseProgressionState.IN_PROGRESS else PhaseProgressionState.APPROVED
+                val badge = if (progress.completedLessons > 0) "IN PROGRESS" else "APPROVED"
+                val message = if (progress.completedLessons > 0) {
+                    "Keep learning here, then practice outside the app before requesting the next phase.$startDateSuffix"
+                } else {
+                    "Teacher approved this classroom. You can enter now.$startDateSuffix"
+                }
 
-            // Approved (unlocked but no progress yet)
-            isUnlocked && (booking?.status == Booking.STATUS_APPROVED || (phase.phaseId == "phase1" && phase.type == Phase.TYPE_FREE)) -> {
                 PhaseProgressionSnapshot(
                     phase = phase,
-                    state = PhaseProgressionState.APPROVED,
-                    badgeLabel = "APPROVED",
-                    statusMessage = "Teacher approved this classroom. You can enter now.$startDateSuffix",
+                    state = state,
+                    badgeLabel = badge,
+                    statusMessage = message,
                     actionLabel = "Enter Classroom",
                     isActionEnabled = true,
                     canEnterClassroom = true,
@@ -170,7 +162,7 @@ object PhaseProgressionResolver {
                         phase = phase,
                         state = PhaseProgressionState.READY_FOR_REQUEST,
                         badgeLabel = "LOCKED",
-                        statusMessage = "Prerequisite complete. Book this class to request teacher approval.$startDateSuffix",
+                        statusMessage = "Prerequisite complete.$startDateSuffix",
                         actionLabel = "Book Class",
                         isActionEnabled = true,
                         canEnterClassroom = false,
@@ -187,10 +179,10 @@ object PhaseProgressionResolver {
                     phase = phase,
                     state = PhaseProgressionState.AVAILABLE,
                     badgeLabel = "LOCKED",
-                    statusMessage = "This classroom is waiting for you. Book your seat now.",
+                    statusMessage = "This classroom is available now.$startDateSuffix",
                     actionLabel = "Book Class",
                     isActionEnabled = true,
-                    canEnterClassroom = (phase.phaseId == "phase1" && phase.type == Phase.TYPE_FREE),
+                    canEnterClassroom = false,
                     phaseProgress = progress,
                     booking = booking,
                     prerequisitePhase = prerequisitePhase

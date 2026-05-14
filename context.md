@@ -1,132 +1,138 @@
 # Project Overview
 
-- This app is an Android learning platform for Shapla Chottor Lab / TradingAI that sells a 6-phase AI/coding journey, mixing free foundational content with paid cohort unlocks.
-- Target users are students learning programming, data, and AI workflows, plus a hardcoded lead admin account that manually reviews bookings and unlocks premium access.
-- The core purpose is to turn a learning catalog into a monetized progression system where lesson completion unlocks advanced surfaces and referrals help drive new enrollments.
+- `Shapla Chottor Lab` / `TradingAI` is a single-module Android app for AI-assisted coding education, mentor-reviewed classroom access, and progress-gated advanced tools.
+- Target users are students and self-learners who want a structured AI/coding journey, plus one hardcoded lead teacher/admin who reviews requests and unlocks classrooms.
+- The intended funnel is a free foundation phase followed by paid mentored cohorts, but the current codebase actually routes classroom access through the same booking/unlock flow unless `users/{userId}.unlockedPhases` is already populated.
+- The core product goal is to move learners through a fixed 6-phase journey, convert them into premium cohorts, and use referrals plus feature unlocks as growth loops.
 
 # Architecture
 
-- Frontend stack: Kotlin 2.1.0, Android Views/XML, ViewBinding, Material 3, Navigation Component with Safe Args, RecyclerView, LiveData, Coroutines, and Glide.
-- App architecture: MVVM plus Repository pattern with a lightweight service locator (`AppGraph`) instead of Hilt/Dagger.
-- Backend stack: Firebase Auth, Cloud Firestore, Google Sign-In, Firestore Security Rules, Meta Android SDK, and local Android notification channels. There is no custom backend service in this repo.
-- Data layer: `AppStore` abstracts persistence, and `FirestoreAppStore` implements cache-first Firestore access, a real-time user stream, and a 100 MB persistent offline cache.
-- Core business logic lives in `PhaseRepository`, which handles phase catalog fallback/seeding, lesson access, canonical sequential lesson-state resolution, progress reconciliation, seat booking, teacher review transitions, approval, cancellation, and expiration.
-- User identity and referral attribution live in `UserRepository`, which creates or merges user profiles, generates referral codes, and logs referred-user attribution.
-- UI shell: `SplashActivity` decides auth routing, `MainActivity` hosts bottom navigation, and fragments cover Home, Phases, My Learning, Advanced, Profile, Classroom, Lesson Detail, Affiliate, Admin Panel, Education, Install, and Invest.
+- Android stack: Kotlin 2.1.0, Android Views/XML, ViewBinding, Material 3, Navigation Component with Safe Args, LiveData, Coroutines, RecyclerView, and Glide.
+- Build/runtime: single `app/` module, `applicationId com.shaplachottor.lab`, `minSdk 24`, `compileSdk/targetSdk 35`, Java 17, `versionCode 11`, `versionName 1.1.1`, release minification enabled, and login-screen branch/version labels generated from Git metadata.
+- App startup: `TradingAIApplication` initializes Firebase, configures Firestore persistent cache, initializes `AppGraph`, and defers Meta SDK setup to a background thread; `SplashActivity` logs a debug Meta test event and routes to `LoginActivity` or `MainActivity`.
+- App architecture is MVVM plus Repository pattern with a lightweight service locator (`AppGraph`) instead of Hilt/Dagger.
+- Persistence is abstracted behind `AppStore`; `FirestoreAppStore` is the only implementation and provides phase reads/writes, user reads/streams, booking reads/writes, lesson-progress persistence, referral stats/history, and client-side account-deletion cleanup.
+- `PhaseRepository` is the main business-logic layer. It handles phase catalog seeding/fallback, phase progression snapshots, sequential lesson validation/repair, equal-weight overall progress, booking creation, expiry/cancellation/review/approval/rejection, and access checks.
+- `UserRepository` handles current-user reads, user creation/merge, referral code assignment, referral attribution, and account deletion.
+- Main UI shell: `MainActivity` hosts bottom navigation for Home, Phases, My Learning, Advanced, and Profile. Secondary destinations are Classroom, Lesson Detail, Affiliate, Admin Panel, Education, Install, and Invest.
 - Content architecture: phase metadata can come from Firestore or local `PhaseCatalog`, but lesson content is fully local Kotlin data in `Phase1LessonProvider` through `Phase6LessonProvider`.
-- Connectivity-aware refresh is built in through `NetworkMonitor`; the phase and classroom viewmodels reload catalog/progress when the device comes back online.
-- Runtime scope: the shipping app is the single `app/` module; `docs/` and `Ai_to_Ai_Development/` contain setup notes, templates, and AI planning artifacts rather than runtime code.
-- Current UI implementation is XML/ViewBinding only. Older Compose references in surrounding docs are outdated.
+- Connectivity handling: `NetworkMonitor` exposes online/offline state; `PhaseViewModel` and `ClassroomViewModel` refresh on reconnect.
+- Non-runtime folders: `docs/` and `Ai_to_Ai_Development/` are reference/planning material, not app runtime code.
 
 # Key Features
 
-- Premium cohort model: Phase 1 is free, while Phases 2 to 6 are premium cohorts with pricing, seat caps, and optional cohort start metadata.
-- Manual teacher review pipeline: premium requests move through `pending -> reviewing -> approved/rejected`, and premium approval is gated behind manual payment confirmation in the Admin Panel.
-- Seat reservation workflow: requesting a locked phase creates `bookings/{userId}_{phaseId}`, reserves a seat immediately in Firestore, and sets a 15-minute pending window.
-- Sequential learning enforcement: users cannot book or access a later phase until the previous phase is completed, and lessons inside each phase must be completed in order.
-- Structured classroom experience: each phase has static lessons with concept, example, exercise, and reflection blocks, and lessons can be opened individually in a detail screen.
-- Self-healing classroom progression: `SequentialLessonProgressResolver` treats visible lesson completion as a contiguous prefix, rejects future-lesson completion, and repairs invalid Firestore completion states during reads and writes.
-- Equal-phase progress model: overall journey progress is weighted evenly across the 6 phases, so finishing a full phase contributes roughly 16 percent regardless of lesson count.
-- Feature gating: advanced tools unlock at defined progress thresholds - bot install at 30 percent, invest/community at 60 percent, and affiliate at 100 percent.
-- Home and My Learning dashboards: both surfaces compute live progress from Firestore user updates and help the user resume the currently active phase.
-- Referral system: new users can enter a referral code during Google sign-in or email registration, and referral events convert when the referred user completes Phase 1.
-- Affiliate views: Profile always shows the user's referral code plus invite/conversion counts, while the gated Affiliate screen adds copy/share actions and referral history.
-- Admin tooling: admins can review open or all booking requests, move a request into `reviewing`, open WhatsApp, copy numbers, approve after payment confirmation, reject, or revoke/cancel seats.
-- Local status notifications: when notification permission is granted, the app posts device-local alerts for new admin booking requests and for learner booking status changes (`reviewing`, `approved`, `rejected`).
-- Auth utilities: Google sign-in is implemented, and email/password account creation plus password reset are available.
-- Privacy policy screen: a dedicated activity renders in-app policy text.
+- Authentication: Google sign-in is the only implemented login path; email/password registration and password reset are implemented, but not email/password sign-in.
+- Referral capture at signup: both Google sign-in and email registration accept an optional referral code.
+- 6-phase learning catalog: Phase 1 is still modeled as `free`; Phases 2-6 are premium mentored cohorts with pricing, seat counts, and optional start dates.
+- Current access control: every classroom effectively depends on `unlockedPhases` or an approved booking, so Phase 1 is not automatically open to new users even though product copy still describes it as the free entry phase.
+- Static structured curriculum: lessons are built from concept, example, exercise, and reflection blocks. Phase 1 has 4 lessons; Phases 2-6 have 3 lessons each.
+- Sequential lesson gating: learners must complete lessons in order, and later phases require contiguous completion of earlier phases.
+- Self-healing progress model: raw lesson-completion documents are canonicalized into a contiguous prefix, and invalid/out-of-order completion states are repaired.
+- Equal-weight journey progress: each phase contributes the same share of overall completion, regardless of lesson count.
+- Feature gating: `tradingBot` unlocks at `>=30%`, `investment` at `>=60%`, and `affiliate` at `100%`.
+- Seat request flow: requesting a phase creates `bookings/{userId}_{phaseId}`, reserves a seat immediately, and starts a 15-minute pending window with countdown UI on phase cards.
+- Manual teacher review flow: admins can move requests to `reviewing`, approve access, reject requests, or revoke previously approved access. Premium approvals prompt for manual payment confirmation.
+- Live progress surfaces: Home and My Learning observe the user profile stream and render active/current progress when a phase is unlocked.
+- Affiliate views: Profile always shows the referral code plus top-line invite/conversion stats; the gated Affiliate screen adds copy/share actions and referral history.
+- Local notifications: admin devices get notifications for new pending requests; learners get notifications when bookings move to `reviewing`, `approved`, or `rejected`.
+- Account management: Profile supports logout, privacy-policy viewing, referral sharing, and permanent account deletion.
 
 # User Flow
 
-- Install and launch: `SplashActivity` initializes Firebase/AppGraph, optionally logs a Meta test event in debug, and routes to `LoginActivity` or `MainActivity`.
-- Sign in or register: a user can sign in with Google or create an account with email/password, optionally supplying a referral code during either path.
-- Profile creation: `UserRepository` creates or merges the user profile, assigns a 6-character referral code, and logs a referral event if the account was referred.
-- Explore learning paths: after login, the user lands in the bottom-nav shell and can browse Home, Phases, My Learning, Advanced, and Profile.
-- Start learning: Phase 1 is free and can be entered without booking; later phases require both prerequisite completion and access approval.
-- Request premium access: from `PhasesFragment`, the user submits a seat request with WhatsApp contact info and enters a pending state with a 15-minute expiry window.
-- Teacher review: the admin receives a local notification for new requests, can mark a booking as `reviewing`, validates payment/readiness for premium cohorts, and then approves or rejects the request.
-- Enter classroom: approved users open the classroom, complete lessons sequentially, and see lesson-based phase and overall progress recalculate; if Firestore lesson docs are inconsistent, the repository reconciles them back to the canonical sequential state.
-- Unlock more value: learner notifications surface approval/rejection changes, overall progress unlocks the advanced areas, and referred users converting through Phase 1 increase affiliate stats.
-- Retention loop: Home, My Learning, and Profile help the user resume the journey, review completed phases, and share referral codes.
+- Install and launch: `TradingAIApplication` initializes Firebase, Firestore cache, `AppGraph`, and Meta; `SplashActivity` waits briefly, logs a debug Meta test event in debug builds, and routes by Firebase auth state.
+- Authenticate: the user signs in with Google or opens `RegisterActivity` for email/password registration; `ForgotPasswordActivity` handles reset emails.
+- Create or merge profile: `UserRepository` saves the user doc, generates a 6-character referral code from the Firebase UID, and records a referral event if the account was referred.
+- Initial app state: new user documents are created with empty `unlockedPhases`, so the app does not currently auto-bootstrap direct access to Phase 1.
+- Explore the app: after login, the user lands in the bottom-nav shell and can browse Home, Phases, My Learning, Advanced, and Profile.
+- Request classroom access: in the current code path, the learner opens `PhasesFragment`, chooses a requestable phase, and submits a WhatsApp number; this includes Phase 1 unless it was already unlocked elsewhere.
+- Teacher review: the admin gets a local notification, opens the Admin Panel, marks the request as reviewing, and then approves or rejects it. Premium approvals include a payment-confirmation prompt.
+- Enter the classroom: once approved, the learner opens the classroom, completes lessons sequentially, and sees phase and journey progress recomputed in real time.
+- Continue progression: completing a phase does not auto-unlock the next one; it only makes the next phase requestable. Completing Phase 1 also marks a referral conversion if the user was referred.
+- Unlock advanced surfaces: overall progress unlocks Install Bot, Invest/Community, and Affiliate screens.
+- Retention and exit: Home/My Learning help the learner resume; Profile lets the user share a referral code, view top-line affiliate stats, open the privacy policy, log out, or delete the account.
 
 # Data & State
 
-- Firestore collections in active use are `users`, `phases`, `bookings`, `referralEvents`, and `affiliateStats`.
-- `users/{userId}` maps to the `User` model: `id`, `email`, `name`, `photoUrl`, `progress`, `phaseProgress`, `unlockedPhases`, `completedPhases`, `unlockedFeatures`, `referralCode`, and `referredBy`.
-- Lesson completion is stored in `users/{userId}/progress/{phaseId}/lessons/{lessonId}` with an `isCompleted` flag.
-- Raw lesson completion docs are treated as input, not truth. `PhaseRepository` canonicalizes them by lesson order, keeps only the contiguous completed prefix, and writes repaired `isCompleted` values back when it detects invalid or out-of-order states.
-- Denormalized user fields such as `phaseProgress`, `completedPhases`, `progress`, and `unlockedFeatures` are recomputed from canonical lesson completion rather than trusted blindly from stale user-document values.
-- Overall progress is not a flat lesson-total percentage. `ProgressCalculator` gives each phase equal weight, then fills that phase's share based on completed lessons inside it.
-- `phases/{phaseId}` stores catalog metadata such as title, level, type, pricing, start date, visibility, and seat counts. If Firestore is empty or stale, the app can fall back to local `PhaseCatalog`, and first booking transactions can bootstrap missing phase documents.
-- `bookings/{userId}_{phaseId}` stores `completedPhaseId`, `whatsappNumber`, `createdAt`, `expiresAt`, `reviewedAt`, `approvedAt`, `lastUpdatedAt`, `reviewedByEmail`, and status. Legacy `booked` status is normalized to `approved` on read.
-- Booking statuses in active use are `pending`, `reviewing`, `approved`, `rejected`, `cancelled`, and `expired`.
-- `referralEvents/{referrerId}_{referredUserId}` store `joined` vs `converted` states plus timestamp.
-- `affiliateStats/{userId}` stores only `totalInvites` and `conversions`.
-- Lesson bodies themselves are local app data, not remote content. Phase 1 has 4 lessons, and Phases 2 to 6 currently have 3 lessons each.
-- `ClassroomFragment` and `LessonDetailFragment` share a classroom-scoped `ClassroomViewModel` through the classroom navigation back stack entry instead of using activity-wide lesson state.
-- State flow is mostly client-driven: fragments talk to viewmodels, viewmodels call repositories, repositories run Firestore transactions or listeners, and UI updates are delivered through LiveData or Flow-backed streams.
-- Firestore security rules carry a large share of enforcement: owner-only user writes, seat-counter constraints, booking status transitions, and admin-only global access.
+- Active Firestore collections are `users`, `phases`, `bookings`, `referralEvents`, and `affiliateStats`.
+- `users/{userId}` maps to `User`: `id`, `email`, `name`, `photoUrl`, `progress`, `phaseProgress`, `unlockedPhases`, `completedPhases`, `unlockedFeatures`, `referralCode`, and `referredBy`.
+- New users are saved with empty `phaseProgress`, empty `unlockedPhases`, and empty `completedPhases`; there is no current write path that auto-adds `phase1` to `unlockedPhases`.
+- Lesson completion lives at `users/{userId}/progress/{phaseId}/lessons/{lessonId}` with an `isCompleted` boolean.
+- Lesson completion docs are not treated as ground truth. `PhaseRepository` resolves them into a contiguous completed prefix, blocks invalid future-lesson completion, and writes repaired values back when needed.
+- Denormalized user fields like `phaseProgress`, `completedPhases`, `progress`, and `unlockedFeatures` are recomputed from canonical lesson state.
+- Overall progress is phase-weighted, not lesson-total weighted. Completing a full phase contributes about `16%` of the total journey.
+- `phases/{phaseId}` stores catalog metadata such as title, description, level, type, price, currency, start date, visibility, order, and seat counts. If Firestore is empty, the app falls back to local `PhaseCatalog`, and the first booking can bootstrap a missing phase doc.
+- `bookings/{userId}_{phaseId}` stores `completedPhaseId`, `whatsappNumber`, `createdAt`, `expiresAt`, `reviewedAt`, `approvedAt`, `lastUpdatedAt`, `reviewedByEmail`, and `status`.
+- Booking statuses in active use are `pending`, `reviewing`, `approved`, `rejected`, `cancelled`, and `expired`. Legacy `booked` is normalized to `approved` on read.
+- `referralEvents/{referrerId}_{referredUserId}` store joined vs converted state plus timestamp.
+- `affiliateStats/{userId}` stores `totalInvites` and `conversions`.
+- `ClassroomFragment` and `LessonDetailFragment` share a classroom-scoped `ClassroomViewModel` using the classroom navigation back stack entry.
+- Data flow is mostly client-driven: fragments -> viewmodels -> repositories/app store -> Firestore transactions or snapshot listeners -> LiveData/Flow updates back to the UI.
+- Account deletion is implemented client-side: the app deletes the user doc, affiliate stats, bookings, referral events where the user is either referrer or referred user, lesson-progress subcollections, and then deletes the Firebase Auth account.
 
 # Integrations
 
-- Firebase Auth: used for Google sign-in, email/password registration, session state, and password reset.
-- Google Sign-In (`play-services-auth`): used to obtain the Google ID token for Firebase login.
-- Cloud Firestore: used for user profiles, phase catalog, bookings, lesson progress, referral events, affiliate stats, and admin notification snapshots.
-- Firestore offline cache: enabled in `FirestoreAppStore` for local-first reads and resilience.
-- Meta Android SDK: initialized in `TradingAIApplication`; debug builds emit `fb_mobile_test_event`, and advertiser ID collection is enabled through code and manifest metadata.
-- Material 3: used for app theming, dialogs, cards, progress indicators, tabs, and navigation presentation.
-- Glide: used for user avatar loading.
-- Local Android notifications: used by `AdminNotificationManager` and `LearnerNotificationManager` for on-device status alerts driven by Firestore listeners.
-- Google Services plugin: applied only when `app/google-services.json` exists locally, so Firebase/Google auth setup depends on that file being supplied outside version control.
-- Declared but not meaningfully used yet: Firebase Functions, Firebase Storage, Firebase Messaging, and Firebase Analytics instrumentation beyond dependency inclusion.
+- Firebase Auth: Google sign-in, email/password account creation, session state, password reset, and auth-account deletion.
+- Google Sign-In (`play-services-auth`): obtains the ID token used for Firebase login.
+- Cloud Firestore: stores user profiles, phase metadata, bookings, lesson progress, referral events, affiliate stats, and notification-driven booking snapshots.
+- Firestore offline persistence: enabled in `TradingAIApplication` with a 100 MB persistent cache.
+- Firestore Security Rules: enforce owner-only user access, booking status transitions, seat counter constraints, and hardcoded email-based admin access.
+- Meta Android SDK: initialized in `TradingAIApplication`; debug builds log `fb_mobile_test_event`, and advertiser ID collection is enabled through manifest metadata and runtime SDK config.
+- Local Android notifications: `AdminNotificationManager` and `LearnerNotificationManager` listen to Firestore changes and emit device-local notifications.
+- Material 3: used for theming, cards, dialogs, tabs, progress indicators, and navigation presentation.
+- Glide: used for avatar loading.
+- Google Services plugin: applied conditionally in `app/build.gradle`; this checkout includes a tracked `app/google-services.json`.
+- Declared but not meaningfully wired into product behavior: Firebase Functions, Firebase Storage, Firebase Analytics, and Firebase Messaging.
 
 # Current Implementation Status
 
-- Complete: the Android app shell, bottom navigation, splash/auth routing, user profile persistence, phase catalog fallback/seeding, classroom lesson flow, canonical sequential progression repair, progress calculation, advanced feature gating, referral capture, and admin booking review are all implemented in code.
-- Complete: premium cohorts are modeled with prices and seat limits, and the manual "Payment Received" workflow for premium phases is implemented in the Admin Panel.
-- Complete: Firestore rules and client transactions cover the intended contract for users, phases, bookings, progress, and referrals.
-- Complete: `MainActivity` requests notification permission and can start both admin request alerts and learner booking-status alerts.
-- Complete: `RegisterActivity` and `ForgotPasswordActivity` exist and are integrated into the auth surface.
-- Partial: email/password registration exists, but there is no matching email/password login path in `LoginActivity`; the login screen is still Google-only.
-- Partial: the advanced gating shell is real, but `InstallFragment` is static guidance only and `InvestFragment` is an empty-list placeholder with no adapter or data source.
-- Partial: `AffiliateFragment` is functional for viewing and sharing, but there is no reward logic, payout logic, or admin-side affiliate management.
-- Partial: `EducationFragment` exists and can show free vs premium tabs, but the main bottom navigation uses `PhasesFragment`, so `EducationFragment` is effectively a secondary flow.
-- Partial: automated coverage exists for utilities and prerequisite logic, but there is still no instrumentation or end-to-end test layer in this repo.
-- Partial: test/build reliability is currently weak. The checked-in `gradlew.bat` sets an empty `CLASSPATH`, so the Windows wrapper does not start correctly in this checkout, and some unit test sources are stale relative to current production APIs and UI copy.
-- Missing: automated server-side booking lifecycle management, scheduled expiration cleanup, push notifications via FCM, payment gateway integration, and role/claims-based admin management.
-- Missing: remote lesson/content management, a real trading bot install/download flow, a real investment/community product flow, and any backend logic for wallet/web3 execution despite the template docs in `docs/web3_integration_template.md`.
+- Complete: app initialization, auth routing, bottom-navigation shell, user-profile persistence, phase catalog fallback/seeding, local curriculum loading, classroom lesson flow, sequential progress repair, equal-weight progress calculation, referral capture, and client-side account deletion are implemented in code.
+- Complete: booking lifecycle states (`pending`, `reviewing`, `approved`, `rejected`, `cancelled`, `expired`), seat reservation/release logic, admin review actions, and local status notifications are implemented.
+- Complete: Firestore rules and client transactions support the intended client-side contract for users, phases, bookings, progress, referrals, and affiliate stats.
+- Complete: Profile supports logout, privacy-policy access, referral sharing, top-line affiliate stats, and account deletion.
+- Partial: the product still positions Phase 1 as the free starting point, but current user creation and access logic do not auto-unlock it. Brand-new users may have no active phase until Phase 1 is manually unlocked or approved through the booking flow.
+- Partial: email/password registration and password reset exist, but `LoginActivity` still has no email/password sign-in UI or implementation.
+- Partial: advanced gating is real, but `InstallFragment` is only a static setup guide, `InvestFragment` is an empty RecyclerView placeholder, and `AffiliateFragment` is informational only.
+- Partial: Profile contains visible `Personal Information` and `Notifications` rows, but no click handlers or destination flows for them.
+- Partial: `EducationFragment` exists and can filter free vs premium phases, but it is not reachable from the main UI and should not be treated as a supported product path.
+- Partial: unit tests exist for progress and repository logic, but build verification is blocked by the broken Windows wrapper, and some tests still encode older access-flow assumptions.
+- Missing: server-side booking lifecycle automation, scheduled expiration cleanup, push notifications via FCM, payment gateway/webhook integration, and role/custom-claims based admin management.
+- Missing: remote lesson/content management, a real trading-bot download/install flow, a real invest/community product, and any backend implementation for the web3 template docs.
 
 # Known Issues / Gaps
 
-- Admin authorization is hardcoded to `sushen.biswas.aga@gmail.com` across app code, docs, and Firestore rules instead of using roles or custom claims.
-- The booking dialog collects only a WhatsApp number for teacher outreach.
-- Booking expiration is still client/lazy driven. A pending request is normalized to `expired` when the owning user reloads bookings, but there is no trusted backend scheduler to release seats globally if the user never returns.
-- Cohort `startDate` is informational only. The UI may show an upcoming date, but repository logic does not block early booking or early classroom unlocks based on start time.
-- Referral codes are derived from the last 6 characters of the Firebase UID, but uniqueness is not enforced even though the docs describe them as unique.
-- The affiliate feature gate is inconsistent: the full Affiliate screen requires 100 percent progress, but Profile already exposes the user's referral code and top-line invite/conversion stats.
-- Documentation is partially out of sync with the app: some docs still mention fields such as `role` and `createdAt`, README/setup copy is still Google-first, and the privacy policy surfaces disagree with the app by omitting email/password auth, describing phone data that is not currently collected, and conflicting on Meta tracking language.
-- Several Firebase dependencies are included but not wired into product behavior, which increases maintenance overhead and can mislead future contributors.
-- `EducationFragment` appears underused relative to `PhasesFragment`, creating duplicate course-browsing concepts in the codebase.
-- `InstallFragment` has a visible GitHub download button but no click handler, and `InvestFragment` has a RecyclerView layout with no adapter or loading logic.
-- Lesson content is hardcoded in Kotlin providers, so non-developers cannot update curriculum, copy, or sequencing without shipping a new app version.
-- The checked-in Windows Gradle wrapper is currently broken because `gradlew.bat` leaves `CLASSPATH` empty, preventing local wrapper-based test runs until the script is repaired.
-- Even after wrapper repair, the current unit tests need maintenance because at least some expectations and method signatures no longer match the production code.
-- The project still builds against Java 17 with `compileSdk = 35` on Android Gradle Plugin 8.5.1, which emits a compatibility warning during Gradle runs.
-- Meta App ID and client token are stored directly in app resources, which is operationally convenient but not ideal for configuration hygiene.
+- Admin authorization is hardcoded to `sushen.biswas.aga@gmail.com` across app code, setup docs, and Firestore rules instead of using roles or custom claims.
+- The strongest product/logic mismatch is Phase 1 onboarding: new users are created with empty `unlockedPhases`, the free phase card still says `Open classroom access`, and README/docs still describe Phase 1 as the direct entry point.
+- Home and My Learning can show no active phase for a brand-new account because active-phase resolution depends on `unlockedPhases`.
+- The booking dialog collects only a WhatsApp number, even though privacy text still references both phone-number and WhatsApp collection.
+- Booking expiration is still client/lazy driven. Pending requests are expired when learners or admins reload them, but there is no trusted backend scheduler to free seats globally if nobody reopens the app.
+- Cohort `startDate` is informational only. The UI can mention an upcoming start date, but booking and classroom access are not blocked by time.
+- Local fallback phase data is not stable for Phase 2: `PhaseCatalog` computes `startDate` as `now + 7 days`, so if Firestore is empty or unseeded the displayed date drifts between app runs.
+- Referral codes are just the last 6 characters of the Firebase UID uppercased. Uniqueness is assumed, not enforced.
+- Affiliate gating is inconsistent: the full Affiliate screen requires `100%` progress, but Profile already exposes the referral code and headline affiliate stats.
+- `ReferralEvent` has a `referredUserName` field for UI display, but current write paths do not populate it, so the history list falls back to generic labels like `Researcher ####`.
+- `EducationFragment` is effectively dead code in the current product flow, and even if re-enabled its filtered phase list would need careful prerequisite validation review.
+- `InstallFragment` exposes a visible `Download from GitHub` button with no click handler, `InvestFragment` defines a RecyclerView with no adapter or data source, and Profile exposes inert `Personal Information` and `Notifications` rows. The Profile footer also hardcodes `v1.4` while build config is `1.1.1`.
+- Documentation is out of sync in several places: README and docs still present Phase 1 as automatically open, `docs/firestore_database_structure.md` still mentions fields like `role` and `createdAt`, setup docs still say `default_web_client_id` lives in `strings.xml`, and privacy text disagrees internally about Meta tracking and contact fields.
+- Several Firebase dependencies are included but not wired into product behavior, which adds maintenance noise and can mislead future contributors.
+- Learner-side cancellation is missing from the UI. The repository and rules understand `cancelled`, but only admin-side flows currently drive cancellation/revocation.
+- Lesson content is hardcoded in Kotlin providers, so curriculum changes require shipping a new app version.
+- Build reproducibility is poor in the current checkout: `gradlew`/`gradlew.bat` are tracked, `gradle/wrapper/*` currently exists in the workspace but remains untracked, and `gradlew.bat` sets an empty `CLASSPATH`, causing Windows wrapper builds to fail with `Error: -classpath requires class path specification`.
+- Unit tests are behind production behavior: `PhaseRepositoryTest` and `PhaseProgressionResolverTest` still assume older onboarding/progression behavior, while wrapper failure currently blocks normal test execution.
+- Meta App ID and client token are stored directly in `strings.xml`, and `app/google-services.json` is tracked in the repo. That is convenient for setup but weak for configuration hygiene.
 
 # Growth & Monetization Opportunities
 
-- The core premium cohort model is already in place, with tiered prices from Phase 2 to Phase 6 and built-in seat scarcity that can support waitlists, launch windows, and cohort countdown campaigns.
-- Referral capture is already implemented at signup, so the next leverage point is turning referral codes into a real incentive system with discounts, bonus lessons, cash commissions, or mentorship perks.
-- The free Phase 1 to paid cohort transition is a strong conversion funnel; adding instrumentation around signup, booking, approval, and first lesson completion would make it measurable.
-- Advanced feature gating creates natural upsell points for paid add-ons such as bot setup support, private research groups, premium templates, or deeper cohort access.
-- Manual WhatsApp outreach can become a high-touch sales channel for premium cohorts, especially if paired with follow-up scripts, reminders, and admin conversion metrics.
-- Profile already exposes referral identity before the 100 percent gate, which could support an earlier ambassador program even before the full affiliate dashboard is unlocked.
-- Static lesson content can evolve into premium downloadable assets, cohort handouts, or template packs once content management is externalized.
-- Meta attribution plus referral loops create the basis for acquisition optimization, but the app still needs clearer event tracking to optimize spend and conversion.
+- The premium cohort model is already monetizable: Phases 2-6 have tiered pricing and built-in seat scarcity, which can support launch windows, waitlists, and urgency-based sales.
+- Resolving the Phase 1 access ambiguity is itself a growth lever: either restore a true free funnel for acquisition, or explicitly position reviewed onboarding as an application/qualification step and monetize the higher-touch experience.
+- Referral capture is already implemented at signup, so the next leverage point is adding real incentives such as discounts, commissions, bonus lessons, or mentorship perks.
+- Manual WhatsApp follow-up can become a stronger conversion workflow if paired with reminders, review SLAs, and simple admin-side funnel reporting.
+- Progress-based feature gates create natural upsell moments for bot setup support, private research groups, downloadable templates, or cohort add-ons.
+- Profile exposes referral identity before the full affiliate gate, which could support an earlier ambassador program without waiting for 100% course completion.
+- Hardcoded lesson content can later become premium downloadable assets, cohort handouts, or a managed CMS/content-ops layer.
+- Meta attribution plus referral loops provide the foundation for paid-acquisition optimization, but the app still needs real analytics events around signup, booking, review, approval, lesson completion, and referral conversion.
 
 # Next Best Actions (IMPORTANT)
 
-- Replace hardcoded admin identity and client-only lifecycle logic with backend authority: add role-based admin control, Cloud Functions for booking expiration and approval side effects, and FCM for real push notifications.
-- Finish the broken product paths that directly affect conversion and trust: add email/password login, collect the intended contact fields, enforce real cohort start rules, and either fully implement or remove the placeholder `Install`, `Invest`, and duplicate `Education` flows.
-- Repair contributor reliability and growth instrumentation together: fix the Gradle wrapper and stale tests, sync README/privacy/database docs with the real data contract, and add analytics around signup, referral, booking, review, approval, and lesson completion.
+- Decide and implement the intended Phase 1 onboarding model end-to-end: either auto-unlock Phase 1 for every new user, or intentionally keep it teacher-gated and update UI copy, docs, tests, and privacy text to match.
+- Replace hardcoded admin authority and client-only lifecycle logic with backend ownership: add role/custom-claims based admin access, Cloud Functions for booking expiration and approval side effects, FCM for real push notifications, and payment-side integrations.
+- Restore contributor reliability and product trust together: fix and track the Gradle wrapper, update stale tests to the current access model, and sync README/docs/privacy/data-contract guidance while finishing or removing placeholder screens and inert profile actions.

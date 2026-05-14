@@ -13,7 +13,7 @@ import org.junit.Test
 class PhaseProgressionResolverTest {
 
     @Test
-    fun `phase1 should be approved and ready to enter for a new learner`() {
+    fun `phase1 should require booking for a new learner`() {
         val phase1 = PhaseCatalog.findById(PhaseCatalog.PHASE1)!!
 
         val snapshot = PhaseProgressionResolver.resolve(
@@ -25,9 +25,9 @@ class PhaseProgressionResolverTest {
             completedPhaseIds = emptyList()
         )
 
-        assertEquals(PhaseProgressionState.APPROVED, snapshot.state)
-        assertTrue(snapshot.canEnterClassroom)
-        assertEquals("Enter Classroom", snapshot.actionLabel)
+        assertEquals(PhaseProgressionState.READY_FOR_REQUEST, snapshot.state)
+        assertFalse(snapshot.canEnterClassroom)
+        assertEquals("Book Class", snapshot.actionLabel)
     }
 
     @Test
@@ -46,7 +46,7 @@ class PhaseProgressionResolverTest {
         assertEquals(PhaseProgressionState.READY_FOR_REQUEST, snapshot.state)
         assertFalse(snapshot.canEnterClassroom)
         assertTrue(snapshot.isActionEnabled)
-        assertEquals("Request Next Phase", snapshot.actionLabel)
+        assertEquals("Book Class", snapshot.actionLabel)
     }
 
     @Test

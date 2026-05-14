@@ -4,22 +4,30 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
-import com.shaplachottor.lab.databinding.FragmentMyLearningBinding
-
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.shaplachottor.lab.R
 import com.shaplachottor.lab.adapters.PhaseAdapter
+import com.shaplachottor.lab.databinding.DialogBookingRequestBinding
+import com.shaplachottor.lab.databinding.FragmentMyLearningBinding
+import com.shaplachottor.lab.models.BookingRequestOutcome
+import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.models.PhaseProgressionSnapshot
 import com.shaplachottor.lab.models.PhaseProgressionState
+import com.shaplachottor.lab.repositories.PhaseRepository
 import com.shaplachottor.lab.viewmodels.MyLearningViewModel
+import kotlinx.coroutines.launch
 
 class MyLearningFragment : Fragment() {
     private var _binding: FragmentMyLearningBinding? = null
     private val binding get() = _binding!!
     private val viewModel: MyLearningViewModel by viewModels()
+    private val phaseRepository = PhaseRepository()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -89,19 +97,54 @@ class MyLearningFragment : Fragment() {
                 }
 
                 val adapter = PhaseAdapter(
-                    phaseSnapshots = completedSnapshots
-                ) { snapshot ->
-                    val navController = findNavController()
-                    if (navController.currentDestination?.id == R.id.myLearningFragment) {
-                        val bundle = Bundle().apply { putString("phaseId", snapshot.phase.phaseId) }
-                        navController.navigate(R.id.action_myLearningFragment_to_classroomFragment, bundle)
+                    phaseSnapshots = completedSnapshots,
+                    onPhaseClick = { snapshot ->
+                        val navController = findNavController()
+                        if (navController.currentDestination?.id == R.id.myLearningFragment) {
+                            val bundle = Bundle().apply { putString("phaseId", snapshot.phase.phaseId) }
+                            navController.navigate(R.id.action_myLearningFragment_to_classroomFragment, bundle)
+                        }
+                    },
+                    onRequestSeat = { phase ->
+                        showBookingRequestDialog(phase)
                     }
-                }
+                )
                 binding.rvCompletedPhases.layoutManager = LinearLayoutManager(requireContext())
                 binding.rvCompletedPhases.adapter = adapter
             } else {
                 binding.tvCompletedLabel.visibility = View.GONE
                 binding.rvCompletedPhases.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun showBookingRequestDialog(phase: Phase) {
+        val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
+        
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Request Seat")
+            .setMessage("Please provide your WhatsApp number for ${phase.title}")
+            .setView(dialogBinding.root)
+            .setPositiveButton("Submit") { _, _ ->
+                val whatsapp = dialogBinding.etWhatsappNumber.text.toString().trim()
+                if (whatsapp.isNotEmpty()) {
+                    performRequestSeat(phase, whatsapp)
+                } else {
+                    Toast.makeText(requireContext(), "WhatsApp number is required.", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun performRequestSeat(phase: Phase, whatsapp: String) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = phaseRepository.requestSeat(phase, whatsapp)
+            if (result.outcome == BookingRequestOutcome.REQUEST_CREATED) {
+                Toast.makeText(requireContext(), "Request submitted successfully", Toast.LENGTH_SHORT).show()
+                viewModel.loadUserData()
+            } else {
+                Toast.makeText(requireContext(), "Request failed: ${result.outcome}", Toast.LENGTH_SHORT).show()
             }
         }
     }

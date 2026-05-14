@@ -14,9 +14,15 @@ import com.shaplachottor.lab.models.PhaseProgressionState
 import java.util.Locale
 
 class PhaseAdapter(
-    private val phaseSnapshots: List<PhaseProgressionSnapshot>,
-    private val onPhaseClick: (PhaseProgressionSnapshot) -> Unit
+    private var phaseSnapshots: List<PhaseProgressionSnapshot>,
+    private val onPhaseClick: (PhaseProgressionSnapshot) -> Unit,
+    private val onRequestSeat: (Phase) -> Unit
 ) : RecyclerView.Adapter<PhaseAdapter.ViewHolder>() {
+
+    fun updateData(newSnapshots: List<PhaseProgressionSnapshot>) {
+        phaseSnapshots = newSnapshots
+        notifyDataSetChanged()
+    }
 
     class ViewHolder(val binding: ItemPhaseBinding) : RecyclerView.ViewHolder(binding.root) {
         var timer: CountDownTimer? = null
@@ -64,12 +70,18 @@ class PhaseAdapter(
             tvPhaseStateBadge.text = snapshot.badgeLabel
             tvPhaseStateBadge.background.setTint(resolveBadgeColor(snapshot.state))
 
-            if (phase.type == Phase.TYPE_PREMIUM) {
-                tvPriceTag.visibility = View.VISIBLE
-                tvPriceTag.text = "${phase.currency} ${phase.price}"
-            } else {
-                tvPriceTag.visibility = View.GONE
-            }
+            tvStatusMessage.text = snapshot.statusMessage
+            tvStatusMessage.setTextColor(
+                if (snapshot.state == PhaseProgressionState.REQUEST_PENDING) {
+                    Color.parseColor("#D4AF37")
+                } else {
+                    Color.parseColor("#0F4C5C")
+                }
+            )
+
+            val isRequestable = snapshot.state == PhaseProgressionState.READY_FOR_REQUEST || 
+                               snapshot.state == PhaseProgressionState.AVAILABLE || 
+                               snapshot.state == PhaseProgressionState.REJECTED
 
             tvStatusMessage.text = snapshot.statusMessage
             tvStatusMessage.setTextColor(
@@ -87,9 +99,16 @@ class PhaseAdapter(
                 startPendingCountdown(holder, booking)
             }
 
-            btnAction.setOnClickListener { onPhaseClick(snapshot) }
+            btnAction.setOnClickListener {
+                if (isRequestable) {
+                    onRequestSeat(phase)
+                } else {
+                    onPhaseClick(snapshot)
+                }
+            }
+            
             root.setOnClickListener {
-                if (snapshot.canEnterClassroom || snapshot.isActionEnabled) {
+                if (snapshot.canEnterClassroom) {
                     onPhaseClick(snapshot)
                 }
             }

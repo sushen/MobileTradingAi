@@ -293,9 +293,13 @@ class PhasesFragment : Fragment() {
             visiblePhaseSnapshots = visiblePhases.mapNotNull { snapshotsById[it.phaseId] }
 
             val activeBinding = _binding ?: return@launch
-            activeBinding.rvPhases.adapter = PhaseAdapter(visiblePhaseSnapshots) { snapshot ->
-                handlePhaseClick(snapshot)
-            }
+            activeBinding.rvPhases.adapter = PhaseAdapter(
+                phaseSnapshots = visiblePhaseSnapshots,
+                onPhaseClick = { snapshot -> handlePhaseClick(snapshot) },
+                onRequestSeat = { phase ->
+                    showBookingRequestDialog(phase)
+                }
+            )
             updateProgressSummary()
         }
     }
@@ -354,10 +358,6 @@ class PhasesFragment : Fragment() {
                 snapshot.booking?.let(::showPendingApprovalDialog)
             }
 
-            snapshot.state == PhaseProgressionState.READY_FOR_REQUEST || snapshot.state == PhaseProgressionState.AVAILABLE || snapshot.state == PhaseProgressionState.REJECTED -> {
-                showBookingRequestDialog(snapshot)
-            }
-
             else -> {
                 context?.let {
                     Toast.makeText(it, snapshot.statusMessage, Toast.LENGTH_SHORT).show()
@@ -366,42 +366,25 @@ class PhasesFragment : Fragment() {
         }
     }
 
-    private fun showBookingRequestDialog(snapshot: PhaseProgressionSnapshot) {
+
+
+    private fun showBookingRequestDialog(phase: Phase) {
         val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
-        val existingBooking = currentBookingStates[snapshot.phase.phaseId]
-        if (existingBooking != null) {
-            dialogBinding.etWhatsappNumber.setText(existingBooking.whatsappNumber)
-        }
-
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Book Your Seat")
-            .setMessage("Your teacher will review your readiness before unlocking ${snapshot.phase.title}. Please provide your WhatsApp number.")
+        
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Request Seat")
+            .setMessage("Please provide your WhatsApp number for ${phase.title}")
             .setView(dialogBinding.root)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Book Class", null)
-            .create()
-
-        dialog.setOnShowListener {
-            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val whatsappNumber = dialogBinding.etWhatsappNumber.text?.toString().orEmpty().trim()
-
-                dialogBinding.inputLayoutWhatsappNumber.error =
-                    if (whatsappNumber.isBlank()) "WhatsApp number is required." else null
-
-                if (whatsappNumber.isBlank()) {
-                    return@setOnClickListener
+            .setPositiveButton("Submit") { _, _ ->
+                val whatsapp = dialogBinding.etWhatsappNumber.text.toString().trim()
+                if (whatsapp.isNotEmpty()) {
+                    viewModel.requestSeat(phase, whatsapp)
+                } else {
+                    Toast.makeText(requireContext(), "WhatsApp number is required.", Toast.LENGTH_SHORT).show()
                 }
-
-                android.util.Log.d(
-                    TAG,
-                    "Submitting phase request: phaseId=${snapshot.phase.phaseId}, whatsappNumber=$whatsappNumber"
-                )
-                dialog.dismiss()
-                viewModel.requestSeat(snapshot.phase, whatsappNumber)
             }
-        }
-
-        dialog.show()
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showPendingApprovalDialog(booking: Booking) {

@@ -260,13 +260,6 @@ class AdminPanelFragment : Fragment() {
                         append("\nCompleted: $completedPhaseLabel")
                         append("\nStatus: ${request.status.uppercase()}")
                     }
-
-                    if (phase != null && phase.type == Phase.TYPE_PREMIUM) {
-                        tvPaymentInfo.visibility = View.VISIBLE
-                        tvPaymentInfo.text = "Premium: ${phase.currency} ${phase.price}"
-                    } else {
-                        tvPaymentInfo.visibility = View.GONE
-                    }
                 }
 
                 tvContactInfo.text = "WhatsApp: ${request.whatsappNumber}"
