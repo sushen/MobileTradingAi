@@ -32,7 +32,7 @@ class AdminPanelFragment : Fragment() {
     private val appStore = AppGraph.appStore()
     private val authProvider = AppGraph.authSessionProvider()
     private val phaseRepository = PhaseRepository()
-    private var currentTab = 0 // 0: Open Requests, 1: All
+    private var currentTab = 0 // 0: Open, 1: Today, 2: Yesterday, 3: 7 Days, 4: Auto-Cancelled, 5: All
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -72,24 +72,54 @@ class AdminPanelFragment : Fragment() {
                 .map { normalizeExpiredOpenRequest(it) }
                 .sortedByDescending { it.lastUpdatedAt.takeIf { updatedAt -> updatedAt > 0L } ?: it.createdAt }
 
-            val requests = if (currentTab == 0) {
-                allRequests.filter { it.status == Booking.STATUS_PENDING || it.status == Booking.STATUS_REVIEWING }
-            } else {
-                allRequests
+            val now = System.currentTimeMillis()
+            val calendar = java.util.Calendar.getInstance()
+
+            // Start of today
+            calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            calendar.set(java.util.Calendar.MINUTE, 0)
+            calendar.set(java.util.Calendar.SECOND, 0)
+            calendar.set(java.util.Calendar.MILLISECOND, 0)
+            val startOfToday = calendar.timeInMillis
+
+            // Start of yesterday
+            val yesterdayCal = java.util.Calendar.getInstance().apply {
+                timeInMillis = startOfToday
+                add(java.util.Calendar.DAY_OF_YEAR, -1)
+            }
+            val startOfYesterday = yesterdayCal.timeInMillis
+
+            // Start of 7 days ago (including today)
+            val sevenDaysAgoCal = java.util.Calendar.getInstance().apply {
+                timeInMillis = startOfToday
+                add(java.util.Calendar.DAY_OF_YEAR, -6)
+            }
+            val startOf7DaysAgo = sevenDaysAgoCal.timeInMillis
+
+            val requests = when (currentTab) {
+                0 -> allRequests.filter { it.status == Booking.STATUS_PENDING || it.status == Booking.STATUS_REVIEWING }
+                1 -> allRequests.filter { it.createdAt >= startOfToday }
+                2 -> allRequests.filter { it.createdAt in startOfYesterday until startOfToday }
+                3 -> allRequests.filter { it.createdAt >= startOf7DaysAgo }
+                4 -> allRequests.filter { it.status == Booking.STATUS_EXPIRED }
+                else -> allRequests
             }
 
             android.util.Log.d(
                 TAG,
-                "Admin request load: tab=$currentTab, requests=${requests.map { "${it.bookingId}:${it.status}" }}"
+                "Admin request load: tab=$currentTab, requests=${requests.size}"
             )
 
             if (requests.isEmpty()) {
                 binding.tvEmptyState.visibility = View.VISIBLE
                 binding.rvRequests.visibility = View.GONE
-                binding.tvEmptyState.text = if (currentTab == 0) {
-                    "No open requests"
-                } else {
-                    "No requests found"
+                binding.tvEmptyState.text = when (currentTab) {
+                    0 -> "No open requests"
+                    1 -> "No requests today"
+                    2 -> "No requests yesterday"
+                    3 -> "No requests in last 7 days"
+                    4 -> "No auto-cancelled requests"
+                    else -> "No requests found"
                 }
             } else {
                 binding.tvEmptyState.visibility = View.GONE
