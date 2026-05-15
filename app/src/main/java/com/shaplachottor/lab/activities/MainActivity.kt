@@ -14,6 +14,8 @@ import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.databinding.ActivityMainBinding
 import com.shaplachottor.lab.services.AdminNotificationManager
 import com.shaplachottor.lab.services.LearnerNotificationManager
+import com.shaplachottor.lab.services.AdminForegroundService
+import android.content.Intent
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -47,7 +49,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        adminNotificationManager?.stopListening()
+        // We do NOT stop the adminForegroundService here 
+        // because we want it to keep running when the app is closed.
         learnerNotificationManager?.stopListening()
     }
 
@@ -88,10 +91,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (email == "sushen.biswas.aga@gmail.com" || email == "sushen.biswas.aga@googlemail.com") {
-            if (adminNotificationManager == null) {
-                adminNotificationManager = AdminNotificationManager(this)
+            val serviceIntent = Intent(this, AdminForegroundService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
             }
-            adminNotificationManager?.startListeningForRequests()
         }
     }
 }

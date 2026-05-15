@@ -18,6 +18,7 @@ import com.shaplachottor.lab.activities.LoginActivity
 import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.databinding.FragmentProfileBinding
 import com.shaplachottor.lab.repository.UserRepository
+import com.shaplachottor.lab.services.AdminForegroundService
 import kotlinx.coroutines.launch
 
 class ProfileFragment : Fragment() {
@@ -117,6 +118,9 @@ class ProfileFragment : Fragment() {
     }
 
     private fun completeSignOutAndNavigateToLogin(hostActivity: FragmentActivity) {
+        // Stop the background monitor
+        hostActivity.stopService(Intent(hostActivity, AdminForegroundService::class.java))
+        
         authSessionProvider.signOut()
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -176,6 +180,9 @@ class ProfileFragment : Fragment() {
     private fun handleLogout() {
         val hostActivity = activity ?: return
         binding.btnLogout.isEnabled = false
+
+        // Stop the background monitor
+        hostActivity.stopService(Intent(hostActivity, AdminForegroundService::class.java))
 
         authSessionProvider.signOut()
 
