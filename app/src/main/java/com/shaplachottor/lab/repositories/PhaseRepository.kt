@@ -72,7 +72,8 @@ open class PhaseRepository(
 
     suspend fun ensurePhasesSeeded(): Boolean {
         // Only the admin can seed the entire catalog to avoid permission errors for students
-        if (authSessionProvider.currentUser()?.email != "sushen.biswas.aga@gmail.com") return false
+        val email = authSessionProvider.currentUser()?.email
+        if (email != "sushen.biswas.aga@gmail.com" && email != "sushen.biswas.aga@googlemail.com") return false
         return try {
             val existingPhases = appStore.getPhases()
             val existingIds = existingPhases.map { it.phaseId }.toSet()
@@ -295,6 +296,8 @@ open class PhaseRepository(
             ?: return BookingRequestResult(BookingRequestOutcome.FAILED)
         val sanitizedWhatsappNumber = whatsappNumber.trim()
 
+        android.util.Log.d(TAG, "Starting seat request: userId=$userId, phaseId=${phase.phaseId}, whatsapp=$sanitizedWhatsappNumber")
+
         if (sanitizedWhatsappNumber.isBlank()) {
             return BookingRequestResult(BookingRequestOutcome.INVALID_CONTACT_INFO)
         }
@@ -334,12 +337,18 @@ open class PhaseRepository(
 
             val db = FirebaseFirestore.getInstance()
             db.runTransaction { transaction ->
+                android.util.Log.d(TAG, "Inside transaction for bookingId=$bookingId")
+                val userRef = db.collection("users").document(userId)
+                
+                // We still read the phase to check for "soft" availability, 
+                // but we won't try to write to it to avoid permission errors.
                 val phaseRef = db.collection("phases").document(phase.phaseId)
                 val phaseSnap = transaction.get(phaseRef)
                 
-                // Deterministic bootstrap: use catalog if doc doesn't exist yet
                 val total = if (phaseSnap.exists()) phaseSnap.getLong("totalSeats")?.toInt() ?: phase.totalSeats else phase.totalSeats
                 val booked = if (phaseSnap.exists()) phaseSnap.getLong("bookedSeats")?.toInt() ?: 0 else 0
+
+                android.util.Log.d(TAG, "Phase stats (read-only check): total=$total, booked=$booked")
 
                 if (booked >= total) {
                     return@runTransaction BookingRequestResult(BookingRequestOutcome.NO_SEATS_AVAILABLE)
@@ -350,13 +359,14 @@ open class PhaseRepository(
                 
                 if (existingBookingSnap.exists()) {
                     val status = existingBookingSnap.getString("status")
-                    if (status == Booking.STATUS_PENDING) {
+                    android.util.Log.d(TAG, "Existing booking found with status=$status")
+                    if (status == Booking.STATUS_PENDING || status == Booking.STATUS_REVIEWING) {
                         return@runTransaction BookingRequestResult(
                             outcome = BookingRequestOutcome.ALREADY_PENDING,
                             booking = existingBookingSnap.toObject(Booking::class.java)
                         )
                     }
-                    if (status == Booking.STATUS_APPROVED) {
+                    if (status == Booking.STATUS_APPROVED || status == Booking.STATUS_BOOKED_LEGACY) {
                         return@runTransaction BookingRequestResult(
                             outcome = BookingRequestOutcome.ALREADY_APPROVED,
                             booking = existingBookingSnap.toObject(Booking::class.java)
@@ -377,15 +387,22 @@ open class PhaseRepository(
                     lastUpdatedAt = now
                 )
 
-                // Atomic Updates: Reserve Seat + Create Booking
+                // Atomic Updates: Create Booking + Update User Profile
+                // Note: We REMOVED the phase update here because learners don't have write permission to 'phases'
+                android.util.Log.d(TAG, "Setting booking and updating user profile")
+                
+                val userSnap = transaction.get(userRef)
                 transaction.set(bookingRef, booking)
                 
-                if (phaseSnap.exists()) {
-                    transaction.update(phaseRef, "bookedSeats", booked + 1)
+                if (userSnap.exists()) {
+                    transaction.update(userRef, "whatsappNumber", sanitizedWhatsappNumber)
                 } else {
-                    // Bootstrap the phase document with first seat booked
-                    val bootstrappedPhase = phase.copy(bookedSeats = 1)
-                    transaction.set(phaseRef, bootstrappedPhase)
+                    val newUser = User(
+                        id = userId,
+                        email = authSessionProvider.currentUser()?.email ?: "",
+                        whatsappNumber = sanitizedWhatsappNumber
+                    )
+                    transaction.set(userRef, newUser)
                 }
                 
                 BookingRequestResult(
@@ -393,6 +410,7 @@ open class PhaseRepository(
                     booking = booking
                 )
             }.await()
+
                 .also { result ->
                     if (result.outcome == BookingRequestOutcome.REQUEST_CREATED) {
                         android.util.Log.d(
@@ -403,7 +421,7 @@ open class PhaseRepository(
                 }
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Request seat failed for phaseId=${phase.phaseId}", e)
-            BookingRequestResult(BookingRequestOutcome.FAILED)
+            BookingRequestResult(BookingRequestOutcome.FAILED, error = e.message)
         }
     }
 
@@ -451,7 +469,8 @@ open class PhaseRepository(
     }
 
     suspend fun markBookingReviewing(bookingId: String): Boolean {
-        if (authSessionProvider.currentUser()?.email != "sushen.biswas.aga@gmail.com") {
+        val currentUserEmail = authSessionProvider.currentUser()?.email
+        if (currentUserEmail != "sushen.biswas.aga@gmail.com" && currentUserEmail != "sushen.biswas.aga@googlemail.com") {
             android.util.Log.w(TAG, "Unauthorized attempt to mark booking as reviewing")
             return false
         }
@@ -493,7 +512,8 @@ open class PhaseRepository(
     }
 
     suspend fun approveBooking(bookingId: String): Boolean {
-        if (authSessionProvider.currentUser()?.email != "sushen.biswas.aga@gmail.com") {
+        val currentUserEmail = authSessionProvider.currentUser()?.email
+        if (currentUserEmail != "sushen.biswas.aga@gmail.com" && currentUserEmail != "sushen.biswas.aga@googlemail.com") {
             android.util.Log.w(TAG, "Unauthorized attempt to approve booking")
             return false
         }
@@ -511,8 +531,26 @@ open class PhaseRepository(
                 val phaseId = bookingSnap.getString("phaseId") ?: return@runTransaction false
                 val userId = bookingSnap.getString("userId") ?: return@runTransaction false
                 
-                // Seat was already incremented in requestSeat()
-                // We just approve and unlock the phase here
+                // Seat increment happens here now (performed by admin)
+                val phaseRef = db.collection("phases").document(phaseId)
+                val phaseSnap = transaction.get(phaseRef)
+                
+                if (phaseSnap.exists()) {
+                    val booked = phaseSnap.getLong("bookedSeats") ?: 0L
+                    val total = phaseSnap.getLong("totalSeats") ?: 0L
+                    if (booked >= total && total > 0) {
+                        android.util.Log.w(TAG, "Cannot approve: Phase $phaseId is full")
+                        return@runTransaction false
+                    }
+                    transaction.update(phaseRef, "bookedSeats", booked + 1)
+                } else {
+                    // If phase doc doesn't exist, we fallback to catalog default and bootstrap it
+                    val catalogPhase = PhaseCatalog.findById(phaseId)
+                    if (catalogPhase != null) {
+                        transaction.set(phaseRef, catalogPhase.copy(bookedSeats = 1))
+                    }
+                }
+
                 val userRef = db.collection("users").document(userId)
                 val userSnap = transaction.get(userRef)
                 val unlocked = (userSnap.get("unlockedPhases") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
@@ -545,7 +583,8 @@ open class PhaseRepository(
     }
 
     suspend fun rejectBooking(bookingId: String): Boolean {
-        if (authSessionProvider.currentUser()?.email != "sushen.biswas.aga@gmail.com") {
+        val currentUserEmail = authSessionProvider.currentUser()?.email
+        if (currentUserEmail != "sushen.biswas.aga@gmail.com" && currentUserEmail != "sushen.biswas.aga@googlemail.com") {
             android.util.Log.w(TAG, "Unauthorized attempt to reject booking")
             return false
         }
@@ -560,14 +599,11 @@ open class PhaseRepository(
                     return@runTransaction false
                 }
 
-                val phaseId = bookingSnap.getString("phaseId") ?: return@runTransaction false
-                val phaseRef = db.collection("phases").document(phaseId)
-                val phaseSnap = transaction.get(phaseRef)
-                val booked = phaseSnap.getLong("bookedSeats") ?: 0L
                 val now = System.currentTimeMillis()
                 val adminEmail = authSessionProvider.currentUser()?.email.orEmpty()
 
-                // Status -> Rejected, Seats -> Decrement (Release the reserved seat)
+                // Status -> Rejected
+                // Note: We NO LONGER decrement seats here because they are only incremented on approval
                 transaction.update(
                     bookingRef,
                     mapOf(
@@ -577,12 +613,10 @@ open class PhaseRepository(
                         "reviewedByEmail" to adminEmail
                     )
                 )
-                if (booked > 0) {
-                    transaction.update(phaseRef, "bookedSeats", booked - 1)
-                }
+                
                 android.util.Log.d(
                     TAG,
-                    "Booking rejected and seat released: bookingId=$bookingId, phaseId=$phaseId, reviewedBy=$adminEmail"
+                    "Booking rejected: bookingId=$bookingId, reviewedBy=$adminEmail"
                 )
                 true
             }.await()
@@ -602,21 +636,23 @@ open class PhaseRepository(
                 
                 if (status == Booking.STATUS_CANCELLED) return@runTransaction true
 
-                // Release seat if the booking was active (Pending or Approved)
-                if (status == Booking.STATUS_APPROVED || status == Booking.STATUS_PENDING) {
+                // Release seat if the booking was active (Pending, Reviewing or Approved)
+                if (status == Booking.STATUS_APPROVED || status == Booking.STATUS_PENDING || status == Booking.STATUS_REVIEWING) {
                     val phaseId = bookingSnap.getString("phaseId") ?: return@runTransaction false
                     val userId = bookingSnap.getString("userId") ?: return@runTransaction false
                     
                     val phaseRef = db.collection("phases").document(phaseId)
+                    val userRef = db.collection("users").document(userId)
+                    
                     val phaseSnap = transaction.get(phaseRef)
+                    val userSnap = transaction.get(userRef)
+                    
                     val booked = phaseSnap.getLong("bookedSeats") ?: 0
                     
                     if (booked > 0) transaction.update(phaseRef, "bookedSeats", booked - 1)
                     
                     // Revoke classroom access if it was already approved
                     if (status == Booking.STATUS_APPROVED) {
-                        val userRef = db.collection("users").document(userId)
-                        val userSnap = transaction.get(userRef)
                         val unlocked = (userSnap.get("unlockedPhases") as? List<*>)
                             ?.mapNotNull { it as? String } ?: emptyList()
                         
@@ -657,12 +693,8 @@ open class PhaseRepository(
                     return@runTransaction false
                 }
 
-                val phaseId = bookingSnap.getString("phaseId") ?: return@runTransaction false
-                val phaseRef = db.collection("phases").document(phaseId)
-                val phaseSnap = transaction.get(phaseRef)
-                val booked = phaseSnap.getLong("bookedSeats") ?: 0L
-
-                // Status -> Expired, Seats -> Decrement
+                // Status -> Expired
+                // Note: We NO LONGER decrement seats here because they are only incremented on approval
                 transaction.update(
                     bookingRef,
                     mapOf(
@@ -670,10 +702,8 @@ open class PhaseRepository(
                         "lastUpdatedAt" to System.currentTimeMillis()
                     )
                 )
-                if (booked > 0) {
-                    transaction.update(phaseRef, "bookedSeats", booked - 1)
-                }
-                android.util.Log.d(TAG, "Booking expired and seat released: bookingId=$bookingId, phaseId=$phaseId")
+                
+                android.util.Log.d(TAG, "Booking expired: bookingId=$bookingId")
                 true
             }.await()
         } catch (e: Exception) {

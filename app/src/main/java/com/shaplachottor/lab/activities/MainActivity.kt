@@ -14,6 +14,8 @@ import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.databinding.ActivityMainBinding
 import com.shaplachottor.lab.services.AdminNotificationManager
 import com.shaplachottor.lab.services.LearnerNotificationManager
+import com.google.firebase.messaging.FirebaseMessaging
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -64,19 +66,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkAndStartAdminNotifications() {
-        if (authProvider.currentUser()?.email == "sushen.biswas.aga@gmail.com") {
-            if (adminNotificationManager == null) {
-                adminNotificationManager = AdminNotificationManager(this)
-            }
-            adminNotificationManager?.startListeningForRequests()
-        }
+        val user = authProvider.currentUser()
+        val email = user?.email
+        val userId = user?.uid
 
-        val userId = authProvider.currentUser()?.uid
         if (userId != null) {
+            // Update FCM Token for push notifications
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val token = task.result
+                    FirebaseFirestore.getInstance()
+                        .collection("users").document(userId)
+                        .update("fcmToken", token)
+                }
+            }
+
             if (learnerNotificationManager == null) {
                 learnerNotificationManager = LearnerNotificationManager(this, userId)
             }
             learnerNotificationManager?.startListening()
+        }
+
+        if (email == "sushen.biswas.aga@gmail.com" || email == "sushen.biswas.aga@googlemail.com") {
+            if (adminNotificationManager == null) {
+                adminNotificationManager = AdminNotificationManager(this)
+            }
+            adminNotificationManager?.startListeningForRequests()
         }
     }
 }

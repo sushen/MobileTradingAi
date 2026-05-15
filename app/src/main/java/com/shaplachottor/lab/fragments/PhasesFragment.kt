@@ -207,7 +207,7 @@ class PhasesFragment : Fragment() {
                 }
 
                 BookingRequestOutcome.FAILED -> {
-                    Toast.makeText(context, "Request failed. Please try again.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Request failed: ${result.error ?: result.outcome}. Please try again.", Toast.LENGTH_LONG).show()
                 }
 
                 BookingRequestOutcome.PREREQUISITE_NOT_MET -> {
@@ -371,6 +371,10 @@ class PhasesFragment : Fragment() {
     private fun showBookingRequestDialog(phase: Phase) {
         val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
         
+        currentUser?.whatsappNumber?.let {
+            dialogBinding.etWhatsappNumber.setText(it)
+        }
+
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Request Seat")
             .setMessage("Please provide your WhatsApp number for ${phase.title}")

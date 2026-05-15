@@ -121,6 +121,10 @@ class MyLearningFragment : Fragment() {
     private fun showBookingRequestDialog(phase: Phase) {
         val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
         
+        viewModel.userData.value?.whatsappNumber?.let {
+            dialogBinding.etWhatsappNumber.setText(it)
+        }
+
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Request Seat")
             .setMessage("Please provide your WhatsApp number for ${phase.title}")

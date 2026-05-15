@@ -45,8 +45,8 @@ class AdminPanelFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val currentUserEmail = authProvider.currentUser()?.email
-        if (currentUserEmail != "sushen.biswas.aga@gmail.com") {
+        val email = authProvider.currentUser()?.email
+        if (email != "sushen.biswas.aga@gmail.com" && email != "sushen.biswas.aga@googlemail.com") {
             Toast.makeText(requireContext(), "Access Denied", Toast.LENGTH_SHORT).show()
             requireActivity().onBackPressed()
             return
@@ -321,21 +321,30 @@ class AdminPanelFragment : Fragment() {
                 }
                 btnWhatsApp.setOnClickListener {
                     try {
-                        val cleanedNumber = request.whatsappNumber.filter { it.isDigit() }
-                        val url = "https://api.whatsapp.com/send?phone=$cleanedNumber"
-                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
-                        intent.data = android.net.Uri.parse(url)
-                        startActivity(intent)
+                        val cleanedNumber = request.whatsappNumber?.filter { it.isDigit() } ?: ""
+                        if (cleanedNumber.isNotBlank()) {
+                            val url = "https://api.whatsapp.com/send?phone=$cleanedNumber"
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                            intent.data = android.net.Uri.parse(url)
+                            startActivity(intent)
+                        } else {
+                            Toast.makeText(requireContext(), "WhatsApp number not available", Toast.LENGTH_SHORT).show()
+                        }
                     } catch (e: Exception) {
                         Toast.makeText(requireContext(), "Could not open WhatsApp", Toast.LENGTH_SHORT).show()
                     }
                 }
                 btnCopy.setOnClickListener {
                     try {
-                        val clipboard = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        val clip = android.content.ClipData.newPlainText("WhatsApp Number", request.whatsappNumber)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(requireContext(), "Number copied: ${request.whatsappNumber}", Toast.LENGTH_SHORT).show()
+                        val number = request.whatsappNumber
+                        if (!number.isNullOrBlank()) {
+                            val clipboard = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("WhatsApp Number", number)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(requireContext(), "Number copied: $number", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(requireContext(), "No number to copy", Toast.LENGTH_SHORT).show()
+                        }
                     } catch (e: Exception) {
                         Toast.makeText(requireContext(), "Failed to copy", Toast.LENGTH_SHORT).show()
                     }

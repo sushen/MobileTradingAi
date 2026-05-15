@@ -5,14 +5,14 @@ data class Booking(
     val userId: String = "",
     val phaseId: String = "",
     val completedPhaseId: String? = null,
-    val whatsappNumber: String = "",
+    val whatsappNumber: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val expiresAt: Long = createdAt + Booking.EXPIRATION_WINDOW_MILLIS,
     val status: String = Booking.STATUS_PENDING,
     val reviewedAt: Long = 0L,
     val approvedAt: Long = 0L,
     val lastUpdatedAt: Long = createdAt,
-    val reviewedByEmail: String = ""
+    val reviewedByEmail: String? = null
 ) {
     val isAwaitingTeacherReview: Boolean
         get() = status == STATUS_PENDING || status == STATUS_REVIEWING

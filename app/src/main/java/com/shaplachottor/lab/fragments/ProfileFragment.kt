@@ -44,7 +44,8 @@ class ProfileFragment : Fragment() {
             handleLogout()
         }
 
-        if (authSessionProvider.currentUser()?.email == "sushen.biswas.aga@gmail.com") {
+        val email = authSessionProvider.currentUser()?.email
+        if (email == "sushen.biswas.aga@gmail.com" || email == "sushen.biswas.aga@googlemail.com") {
             binding.chipRole.text = "Admin"
             binding.chipRole.setOnClickListener {
                 androidx.navigation.fragment.NavHostFragment.findNavController(this).navigate(

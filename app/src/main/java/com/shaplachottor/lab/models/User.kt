@@ -10,6 +10,7 @@ data class User(
     val unlockedPhases: List<String> = emptyList(),
     val completedPhases: List<String> = emptyList(),
     val unlockedFeatures: AdvancedFeatures = AdvancedFeatures(),
+    val whatsappNumber: String? = null,
     val referralCode: String = "",
     val referredBy: String? = null
 )

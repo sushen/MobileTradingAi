@@ -30,6 +30,7 @@ class FirestoreAppStore : AppStore {
         return try {
             db.collection("phases").get().await().toObjects(Phase::class.java)
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "FATAL: Error fetching phases from Firestore: ${e.message}", e)
             emptyList()
         }
     }
@@ -92,6 +93,7 @@ class FirestoreAppStore : AppStore {
         return try {
             db.collection("bookings").get().await().toObjects(Booking::class.java)
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "FATAL: Error fetching all bookings (Admin): ${e.message}", e)
             emptyList()
         }
     }

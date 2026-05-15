@@ -34,6 +34,7 @@ class EducationFragment : Fragment() {
     private var allPhases: List<Phase> = emptyList()
     private var filterType: String = Phase.TYPE_FREE
     private var observationJob: Job? = null
+    private var currentUser: User? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -84,6 +85,7 @@ class EducationFragment : Fragment() {
             ) { user, bookings ->
                 user to bookings
             }.collect { (user, bookings) ->
+                this@EducationFragment.currentUser = user
                 updateList(user, bookings)
             }
         }
@@ -130,6 +132,10 @@ class EducationFragment : Fragment() {
     private fun showBookingRequestDialog(phase: Phase) {
         val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
         
+        currentUser?.whatsappNumber?.let {
+            dialogBinding.etWhatsappNumber.setText(it)
+        }
+
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Request Seat")
             .setMessage("Please provide your WhatsApp number for ${phase.title}")
