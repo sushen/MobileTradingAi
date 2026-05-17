@@ -28,7 +28,10 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getPhases(): List<Phase> {
         return try {
-            db.collection("phases").get().await().toObjects(Phase::class.java)
+            val snapshot = db.collection("phases").get().await()
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Phase::class.java)?.copy(phaseId = doc.id)
+            }
         } catch (e: Exception) {
             android.util.Log.e(TAG, "FATAL: Error fetching phases from Firestore: ${e.message}", e)
             emptyList()
@@ -37,7 +40,8 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getPhase(phaseId: String): Phase? {
         return try {
-            db.collection("phases").document(phaseId).get().await().toObject(Phase::class.java)
+            val doc = db.collection("phases").document(phaseId).get().await()
+            doc.toObject(Phase::class.java)?.copy(phaseId = doc.id)
         } catch (e: Exception) {
             null
         }
@@ -45,7 +49,8 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getUser(userId: String): User? {
         return try {
-            db.collection("users").document(userId).get().await().toObject(User::class.java)
+            val doc = db.collection("users").document(userId).get().await()
+            doc.toObject(User::class.java)?.copy(id = doc.id)
         } catch (e: Exception) {
             null
         }
@@ -58,7 +63,7 @@ class FirestoreAppStore : AppStore {
                     close(error)
                     return@addSnapshotListener
                 }
-                trySend(snapshot?.toObject(User::class.java))
+                trySend(snapshot?.toObject(User::class.java)?.copy(id = snapshot.id))
             }
         awaitClose { registration.remove() }
     }
@@ -69,7 +74,8 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getBooking(bookingId: String): Booking? {
         return try {
-            db.collection("bookings").document(bookingId).get().await().toObject(Booking::class.java)
+            val doc = db.collection("bookings").document(bookingId).get().await()
+            doc.toObject(Booking::class.java)?.copy(bookingId = doc.id)
         } catch (e: Exception) {
             null
         }
@@ -81,9 +87,12 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getPendingBookings(): List<Booking> {
         return try {
-            db.collection("bookings")
+            val snapshot = db.collection("bookings")
                 .whereEqualTo("status", Booking.STATUS_PENDING)
-                .get().await().toObjects(Booking::class.java)
+                .get().await()
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Booking::class.java)?.copy(bookingId = doc.id)
+            }
         } catch (e: Exception) {
             emptyList()
         }
@@ -91,7 +100,10 @@ class FirestoreAppStore : AppStore {
 
     override suspend fun getAllBookings(): List<Booking> {
         return try {
-            db.collection("bookings").get().await().toObjects(Booking::class.java)
+            val snapshot = db.collection("bookings").get().await()
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Booking::class.java)?.copy(bookingId = doc.id)
+            }
         } catch (e: Exception) {
             android.util.Log.e(TAG, "FATAL: Error fetching all bookings (Admin): ${e.message}", e)
             emptyList()

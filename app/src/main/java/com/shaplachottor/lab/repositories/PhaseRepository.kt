@@ -471,7 +471,11 @@ open class PhaseRepository(
     suspend fun markBookingReviewing(bookingId: String): Boolean {
         val currentUserEmail = authSessionProvider.currentUser()?.email
         if (currentUserEmail != "sushen.biswas.aga@gmail.com" && currentUserEmail != "sushen.biswas.aga@googlemail.com") {
-            android.util.Log.w(TAG, "Unauthorized attempt to mark booking as reviewing")
+            android.util.Log.w(TAG, "Unauthorized attempt to mark booking as reviewing by $currentUserEmail")
+            return false
+        }
+        if (bookingId.isBlank()) {
+            android.util.Log.e(TAG, "Mark reviewing failed: bookingId is blank")
             return false
         }
         val db = FirebaseFirestore.getInstance()
@@ -479,17 +483,22 @@ open class PhaseRepository(
             db.runTransaction { transaction ->
                 val bookingRef = db.collection("bookings").document(bookingId)
                 val bookingSnap = transaction.get(bookingRef)
-                val status = bookingSnap.getString("status") ?: return@runTransaction false
+                
+                if (!bookingSnap.exists()) {
+                    throw Exception("Booking $bookingId does not exist")
+                }
+                
+                val status = bookingSnap.getString("status") ?: throw Exception("Status is null for booking $bookingId")
 
                 if (status == Booking.STATUS_REVIEWING) {
                     return@runTransaction true
                 }
                 if (status != Booking.STATUS_PENDING) {
-                    return@runTransaction false
+                    throw Exception("Booking $bookingId has invalid status '$status' to start review")
                 }
 
                 val now = System.currentTimeMillis()
-                val adminEmail = authSessionProvider.currentUser()?.email.orEmpty()
+                val adminEmail = currentUserEmail.orEmpty()
                 transaction.update(
                     bookingRef,
                     mapOf(
@@ -506,7 +515,7 @@ open class PhaseRepository(
                 true
             }.await()
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Failed to mark booking reviewing: bookingId=$bookingId", e)
+            android.util.Log.e(TAG, "Failed to mark booking reviewing: bookingId=$bookingId. Error: ${e.message}", e)
             false
         }
     }
@@ -514,7 +523,11 @@ open class PhaseRepository(
     suspend fun approveBooking(bookingId: String): Boolean {
         val currentUserEmail = authSessionProvider.currentUser()?.email
         if (currentUserEmail != "sushen.biswas.aga@gmail.com" && currentUserEmail != "sushen.biswas.aga@googlemail.com") {
-            android.util.Log.w(TAG, "Unauthorized attempt to approve booking")
+            android.util.Log.w(TAG, "Unauthorized attempt to approve booking by $currentUserEmail")
+            return false
+        }
+        if (bookingId.isBlank()) {
+            android.util.Log.e(TAG, "Approve failed: bookingId is blank")
             return false
         }
         val db = FirebaseFirestore.getInstance()
@@ -522,41 +535,48 @@ open class PhaseRepository(
             db.runTransaction { transaction ->
                 val bookingRef = db.collection("bookings").document(bookingId)
                 val bookingSnap = transaction.get(bookingRef)
-                val status = bookingSnap.getString("status")
                 
-                if (!bookingSnap.exists() || (status != Booking.STATUS_PENDING && status != Booking.STATUS_REVIEWING)) {
-                    return@runTransaction false
+                if (!bookingSnap.exists()) {
+                    throw Exception("Booking $bookingId does not exist")
+                }
+                
+                val status = bookingSnap.getString("status")
+                if (status != Booking.STATUS_PENDING && status != Booking.STATUS_REVIEWING) {
+                    throw Exception("Booking $bookingId has invalid status '$status' for approval")
                 }
 
-                val phaseId = bookingSnap.getString("phaseId") ?: return@runTransaction false
-                val userId = bookingSnap.getString("userId") ?: return@runTransaction false
+                val phaseId = bookingSnap.getString("phaseId") ?: throw Exception("phaseId is null for booking $bookingId")
+                val userId = bookingSnap.getString("userId") ?: throw Exception("userId is null for booking $bookingId")
                 
-                // Seat increment happens here now (performed by admin)
+                // All Reads must happen before any Writes in a transaction
                 val phaseRef = db.collection("phases").document(phaseId)
                 val phaseSnap = transaction.get(phaseRef)
                 
+                val userRef = db.collection("users").document(userId)
+                val userSnap = transaction.get(userRef)
+
+                // 1. Seat increment check
                 if (phaseSnap.exists()) {
                     val booked = phaseSnap.getLong("bookedSeats") ?: 0L
                     val total = phaseSnap.getLong("totalSeats") ?: 0L
+                    android.util.Log.d(TAG, "Approving phase $phaseId: booked=$booked, total=$total")
                     if (booked >= total && total > 0) {
-                        android.util.Log.w(TAG, "Cannot approve: Phase $phaseId is full")
-                        return@runTransaction false
+                        throw Exception("Phase $phaseId is full (booked=$booked, total=$total)")
                     }
                     transaction.update(phaseRef, "bookedSeats", booked + 1)
                 } else {
-                    // If phase doc doesn't exist, we fallback to catalog default and bootstrap it
+                    android.util.Log.d(TAG, "Phase $phaseId document missing, bootstrapping from catalog")
                     val catalogPhase = PhaseCatalog.findById(phaseId)
                     if (catalogPhase != null) {
                         transaction.set(phaseRef, catalogPhase.copy(bookedSeats = 1))
+                    } else {
+                        throw Exception("Phase $phaseId not found in catalog")
                     }
                 }
 
-                val userRef = db.collection("users").document(userId)
-                val userSnap = transaction.get(userRef)
-                val unlocked = (userSnap.get("unlockedPhases") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                // 2. Booking status update
                 val now = System.currentTimeMillis()
-                val adminEmail = authSessionProvider.currentUser()?.email.orEmpty()
-
+                val adminEmail = currentUserEmail.orEmpty()
                 transaction.update(
                     bookingRef,
                     mapOf(
@@ -567,17 +587,31 @@ open class PhaseRepository(
                         "reviewedByEmail" to adminEmail
                     )
                 )
-                if (!unlocked.contains(phaseId)) {
-                    transaction.update(userRef, "unlockedPhases", unlocked + phaseId)
+
+                // 3. User phase unlock
+                if (userSnap.exists()) {
+                    val unlocked = (userSnap.get("unlockedPhases") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                    if (!unlocked.contains(phaseId)) {
+                        transaction.update(userRef, "unlockedPhases", unlocked + phaseId)
+                    }
+                } else {
+                    // Fallback for missing user profile
+                    val newUser = User(
+                        id = userId,
+                        email = "", // We don't have user email in booking doc
+                        unlockedPhases = listOf(phaseId)
+                    )
+                    transaction.set(userRef, newUser)
                 }
+
                 android.util.Log.d(
                     TAG,
-                    "Booking approved and phase unlocked: bookingId=$bookingId, userId=$userId, phaseId=$phaseId, reviewedBy=$adminEmail"
+                    "Booking approved and phase unlocked successfully: bookingId=$bookingId, userId=$userId, phaseId=$phaseId, reviewedBy=$adminEmail"
                 )
                 true
             }.await()
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Failed to approve booking: bookingId=$bookingId", e)
+            android.util.Log.e(TAG, "Failed to approve booking: bookingId=$bookingId. Error: ${e.message}", e)
             false
         }
     }
@@ -585,7 +619,11 @@ open class PhaseRepository(
     suspend fun rejectBooking(bookingId: String): Boolean {
         val currentUserEmail = authSessionProvider.currentUser()?.email
         if (currentUserEmail != "sushen.biswas.aga@gmail.com" && currentUserEmail != "sushen.biswas.aga@googlemail.com") {
-            android.util.Log.w(TAG, "Unauthorized attempt to reject booking")
+            android.util.Log.w(TAG, "Unauthorized attempt to reject booking by $currentUserEmail")
+            return false
+        }
+        if (bookingId.isBlank()) {
+            android.util.Log.e(TAG, "Reject failed: bookingId is blank")
             return false
         }
         val db = FirebaseFirestore.getInstance()
@@ -593,17 +631,19 @@ open class PhaseRepository(
             db.runTransaction { transaction ->
                 val bookingRef = db.collection("bookings").document(bookingId)
                 val bookingSnap = transaction.get(bookingRef)
-                val status = bookingSnap.getString("status")
                 
-                if (!bookingSnap.exists() || (status != Booking.STATUS_PENDING && status != Booking.STATUS_REVIEWING)) {
-                    return@runTransaction false
+                if (!bookingSnap.exists()) {
+                    throw Exception("Booking $bookingId does not exist")
+                }
+                
+                val status = bookingSnap.getString("status")
+                if (status != Booking.STATUS_PENDING && status != Booking.STATUS_REVIEWING) {
+                    throw Exception("Booking $bookingId has invalid status '$status' for rejection")
                 }
 
                 val now = System.currentTimeMillis()
-                val adminEmail = authSessionProvider.currentUser()?.email.orEmpty()
+                val adminEmail = currentUserEmail.orEmpty()
 
-                // Status -> Rejected
-                // Note: We NO LONGER decrement seats here because they are only incremented on approval
                 transaction.update(
                     bookingRef,
                     mapOf(
@@ -621,7 +661,7 @@ open class PhaseRepository(
                 true
             }.await()
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Failed to reject booking: bookingId=$bookingId", e)
+            android.util.Log.e(TAG, "Failed to reject booking: bookingId=$bookingId. Error: ${e.message}", e)
             false
         }
     }

@@ -155,16 +155,16 @@ class AdminPanelFragment : Fragment() {
 
     private fun startReview(booking: Booking) {
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Start Teacher Review")
-            .setMessage("Mark this request as under review after checking practical work, external assignments, and learner readiness.")
+            .setTitle("Start Review")
+            .setMessage("Mark as under review?")
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Mark Reviewing") { _, _ ->
+            .setPositiveButton("Reviewing") { _, _ ->
                 viewLifecycleOwner.lifecycleScope.launch {
                     val success = phaseRepository.markBookingReviewing(booking.bookingId)
                     if (success) {
-                        Toast.makeText(requireContext(), "Request marked as reviewing", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), "Reviewing", Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(requireContext(), "Could not start review", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), "Failed", Toast.LENGTH_SHORT).show()
                     }
                     loadRequests()
                 }
@@ -181,9 +181,10 @@ class AdminPanelFragment : Fragment() {
 
                 if (phase?.type == Phase.TYPE_PREMIUM) {
                     MaterialAlertDialogBuilder(requireContext())
-                        .setTitle("Approve Next Classroom")
-                        .setMessage("Confirm payment and readiness for $displayName before unlocking ${phase.title}.")
-                        .setPositiveButton("Approve Access") { _, _ ->
+                        .setTitle("Approve Access")
+                        .setMessage("Approve $displayName for ${phase.title}?")
+                        .setPositiveButton("Approve", null)
+                        .setPositiveButton("Approve") { _, _ ->
                             performApproval(booking)
                         }
                         .setNegativeButton("Cancel", null)

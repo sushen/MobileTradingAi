@@ -16,7 +16,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.shaplachottor.lab.R
 import com.shaplachottor.lab.adapters.PhaseAdapter
 import com.shaplachottor.lab.data.AppGraph
-import com.shaplachottor.lab.databinding.DialogBookingRequestBinding
 import com.shaplachottor.lab.databinding.FragmentPhasesBinding
 import com.shaplachottor.lab.models.Booking
 import com.shaplachottor.lab.models.BookingRequestOutcome
@@ -26,6 +25,7 @@ import com.shaplachottor.lab.models.PhaseProgressionSnapshot
 import com.shaplachottor.lab.models.PhaseProgressionState
 import com.shaplachottor.lab.models.User
 import com.shaplachottor.lab.repositories.PhaseRepository
+import com.shaplachottor.lab.util.BookingRequestDialog
 import com.shaplachottor.lab.viewmodels.PhaseViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -132,8 +132,8 @@ class PhasesFragment : Fragment() {
                             context?.let {
                                 Toast.makeText(
                                     it,
-                                    "$unlockedTitle is approved. You can enter the classroom now.",
-                                    Toast.LENGTH_LONG
+                                    "$unlockedTitle approved. Enter now.",
+                                    Toast.LENGTH_SHORT
                                 ).show()
                             }
                         }
@@ -175,9 +175,7 @@ class PhasesFragment : Fragment() {
                 BookingRequestOutcome.REQUEST_CREATED -> {
                     MaterialAlertDialogBuilder(requireContext())
                         .setTitle("Request Sent")
-                        .setMessage(
-                            "Your request has been sent to the teacher. The next classroom stays locked until the teacher reviews your readiness and approves access."
-                        )
+                        .setMessage("Request sent. Classroom unlocks after teacher approval.")
                         .setPositiveButton("OK", null)
                         .show()
                 }
@@ -189,31 +187,31 @@ class PhasesFragment : Fragment() {
                 BookingRequestOutcome.ALREADY_APPROVED -> {
                     Toast.makeText(
                         context,
-                        "This classroom is already approved. Enter it from the card.",
+                        "Already approved. Enter via card.",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
 
                 BookingRequestOutcome.NO_SEATS_AVAILABLE -> {
-                    Toast.makeText(context, "No seats available for this classroom right now.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "No seats available.", Toast.LENGTH_SHORT).show()
                 }
 
                 BookingRequestOutcome.INVALID_CONTACT_INFO -> {
                     Toast.makeText(
                         context,
-                        "WhatsApp number is required.",
+                        "WhatsApp required.",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
 
                 BookingRequestOutcome.FAILED -> {
-                    Toast.makeText(context, "Request failed: ${result.error ?: result.outcome}. Please try again.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Request failed. Try again.", Toast.LENGTH_SHORT).show()
                 }
 
                 BookingRequestOutcome.PREREQUISITE_NOT_MET -> {
                     Toast.makeText(
                         context,
-                        "Complete the current classroom to 100% before requesting the next phase.",
+                        "Complete current phase 100% first.",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -238,7 +236,7 @@ class PhasesFragment : Fragment() {
                     context?.let {
                         Toast.makeText(
                             it,
-                            "Teacher started reviewing your request for ${phaseTitle(phaseId)}.",
+                            "Reviewing ${phaseTitle(phaseId)}.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -248,7 +246,7 @@ class PhasesFragment : Fragment() {
                     context?.let {
                         Toast.makeText(
                             it,
-                            "Your request for ${phaseTitle(phaseId)} was rejected. Continue practicing, then request again.",
+                            "Request for ${phaseTitle(phaseId)} rejected. Keep practicing.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -369,38 +367,20 @@ class PhasesFragment : Fragment() {
 
 
     private fun showBookingRequestDialog(phase: Phase) {
-        val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
-        
-        currentUser?.whatsappNumber?.let {
-            dialogBinding.etWhatsappNumber.setText(it)
-        }
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Request Seat")
-            .setMessage("Please provide your WhatsApp number for ${phase.title}")
-            .setView(dialogBinding.root)
-            .setPositiveButton("Submit") { _, _ ->
-                val whatsapp = dialogBinding.etWhatsappNumber.text.toString().trim()
-                if (whatsapp.isNotEmpty()) {
-                    viewModel.requestSeat(phase, whatsapp)
-                } else {
-                    Toast.makeText(requireContext(), "WhatsApp number is required.", Toast.LENGTH_SHORT).show()
-                }
+        BookingRequestDialog.show(
+            context = requireContext(),
+            layoutInflater = layoutInflater,
+            phase = phase,
+            initialWhatsappNumber = currentUser?.whatsappNumber,
+            onSubmit = { whatsapp, dialog ->
+                dialog.dismiss()
+                viewModel.requestSeat(phase, whatsapp)
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        )
     }
 
     private fun showPendingApprovalDialog(booking: Booking) {
-        val message = when (booking.status) {
-            Booking.STATUS_REVIEWING ->
-                "Teacher is reviewing your readiness for ${phaseTitle(booking.phaseId)}. Access stays locked until approval."
-            else -> {
-                val formattedExpiryTime = DateFormat.getTimeFormat(requireContext())
-                    .format(Date(booking.expiresAt))
-                "Your request is waiting for teacher pickup until $formattedExpiryTime. Access stays locked until approval."
-            }
-        }
+        val message = "Teacher will WhatsApp"
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Awaiting Teacher Review")

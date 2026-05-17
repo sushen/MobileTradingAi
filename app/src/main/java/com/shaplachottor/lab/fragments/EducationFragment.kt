@@ -14,13 +14,12 @@ import com.shaplachottor.lab.R
 import com.shaplachottor.lab.adapters.PhaseAdapter
 import com.shaplachottor.lab.data.AppGraph
 import com.shaplachottor.lab.databinding.FragmentEducationBinding
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.shaplachottor.lab.databinding.DialogBookingRequestBinding
 import com.shaplachottor.lab.models.Booking
 import com.shaplachottor.lab.models.BookingRequestOutcome
 import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.models.User
 import com.shaplachottor.lab.repositories.PhaseRepository
+import com.shaplachottor.lab.util.BookingRequestDialog
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -130,36 +129,26 @@ class EducationFragment : Fragment() {
     }
 
     private fun showBookingRequestDialog(phase: Phase) {
-        val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
-        
-        currentUser?.whatsappNumber?.let {
-            dialogBinding.etWhatsappNumber.setText(it)
-        }
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Request Seat")
-            .setMessage("Please provide your WhatsApp number for ${phase.title}")
-            .setView(dialogBinding.root)
-            .setPositiveButton("Submit") { _, _ ->
-                val whatsapp = dialogBinding.etWhatsappNumber.text.toString().trim()
-                if (whatsapp.isNotEmpty()) {
-                    performRequestSeat(phase, whatsapp)
-                } else {
-                    Toast.makeText(requireContext(), "WhatsApp number required", Toast.LENGTH_SHORT).show()
-                }
+        BookingRequestDialog.show(
+            context = requireContext(),
+            layoutInflater = layoutInflater,
+            phase = phase,
+            initialWhatsappNumber = currentUser?.whatsappNumber,
+            onSubmit = { whatsapp, dialog ->
+                dialog.dismiss()
+                performRequestSeat(phase, whatsapp)
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        )
     }
 
     private fun performRequestSeat(phase: Phase, whatsapp: String) {
         viewLifecycleOwner.lifecycleScope.launch {
             val result = phaseRepository.requestSeat(phase, whatsapp)
             if (result.outcome == BookingRequestOutcome.REQUEST_CREATED) {
-                Toast.makeText(requireContext(), "Request submitted successfully", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Request submitted.", Toast.LENGTH_SHORT).show()
                 updateList()
             } else {
-                Toast.makeText(requireContext(), "Request failed: ${result.outcome}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Request failed.", Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -90,7 +90,7 @@ class LearnerNotificationManager(
         )
 
         val contentText = when (booking.status) {
-            Booking.STATUS_REVIEWING -> "Teacher started reviewing your request for $phaseTitle."
+            Booking.STATUS_REVIEWING -> "Teacher will WhatsApp"
             Booking.STATUS_APPROVED -> "$phaseTitle is approved. You can enter the classroom now."
             Booking.STATUS_REJECTED -> "Your request for $phaseTitle was rejected. Continue practicing and try again."
             else -> return

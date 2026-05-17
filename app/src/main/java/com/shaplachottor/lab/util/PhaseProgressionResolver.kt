@@ -47,7 +47,7 @@ object PhaseProgressionResolver {
                     phase = phase,
                     state = PhaseProgressionState.COMPLETED,
                     badgeLabel = "COMPLETED",
-                    statusMessage = "Classroom progress reached 100%. Review this class anytime.$startDateSuffix",
+                    statusMessage = "100% complete. Review anytime.$startDateSuffix",
                     actionLabel = "Review Classroom",
                     isActionEnabled = true,
                     canEnterClassroom = true,
@@ -62,9 +62,9 @@ object PhaseProgressionResolver {
                 val state = if (progress.completedLessons > 0) PhaseProgressionState.IN_PROGRESS else PhaseProgressionState.APPROVED
                 val badge = if (progress.completedLessons > 0) "IN PROGRESS" else "APPROVED"
                 val message = if (progress.completedLessons > 0) {
-                    "Keep learning here, then practice outside the app before requesting the next phase.$startDateSuffix"
+                    "Keep learning and practicing.$startDateSuffix"
                 } else {
-                    "Teacher approved this classroom. You can enter now.$startDateSuffix"
+                    "Approved. Enter now.$startDateSuffix"
                 }
 
                 PhaseProgressionSnapshot(
@@ -83,18 +83,7 @@ object PhaseProgressionResolver {
 
             // Pending Review
             booking?.status == Booking.STATUS_PENDING || booking?.status == Booking.STATUS_REVIEWING -> {
-                val isReviewing = booking.status == Booking.STATUS_REVIEWING
-                val statusMessage = if (isReviewing) {
-                    "Teacher is reviewing your readiness for this classroom."
-                } else {
-                    val hasExpiry = booking.expiresAt > now
-                    if (hasExpiry) {
-                        val minutesRemaining = ((booking.expiresAt - now) / 60_000L).coerceAtLeast(0L)
-                        String.format(Locale.getDefault(), "Teacher pickup pending. Seat hold expires in %d min.", minutesRemaining)
-                    } else {
-                        "Pending request expired. Submit a new request when ready."
-                    }
-                }
+                val statusMessage = "Teacher will WhatsApp"
                 PhaseProgressionSnapshot(
                     phase = phase,
                     state = PhaseProgressionState.REQUEST_PENDING,
@@ -115,7 +104,7 @@ object PhaseProgressionResolver {
                     phase = phase,
                     state = PhaseProgressionState.REJECTED,
                     badgeLabel = "REJECTED",
-                    statusMessage = "Teacher asked for more practice before the next classroom. You can request again later.$startDateSuffix",
+                    statusMessage = "More practice needed. Request again later.$startDateSuffix",
                     actionLabel = "Request Again",
                     isActionEnabled = prerequisiteMet && phase.availableSeats > 0,
                     canEnterClassroom = false,
@@ -127,12 +116,12 @@ object PhaseProgressionResolver {
 
             // Locked (Prerequisite not met)
             !prerequisiteMet -> {
-                val prerequisiteTitle = prerequisitePhase?.title ?: "the previous phase"
+                val prerequisiteTitle = prerequisitePhase?.title ?: "previous phase"
                 PhaseProgressionSnapshot(
                     phase = phase,
                     state = PhaseProgressionState.LOCKED,
                     badgeLabel = "LOCKED",
-                    statusMessage = "Complete $prerequisiteTitle before requesting this classroom.",
+                    statusMessage = "Complete $prerequisiteTitle first.",
                     actionLabel = "Locked",
                     isActionEnabled = false,
                     canEnterClassroom = false,
@@ -149,7 +138,7 @@ object PhaseProgressionResolver {
                         phase = phase,
                         state = PhaseProgressionState.LOCKED,
                         badgeLabel = "LOCKED",
-                        statusMessage = "Seats are currently full for this classroom.$startDateSuffix",
+                        statusMessage = "Seats full.$startDateSuffix",
                         actionLabel = "No Seats Available",
                         isActionEnabled = false,
                         canEnterClassroom = false,

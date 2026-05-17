@@ -33,7 +33,8 @@ class UserRepository(
             val mergedUser = existingUser.copy(
                 email = user.email.ifEmpty { existingUser.email },
                 name = user.name.ifEmpty { existingUser.name },
-                photoUrl = user.photoUrl ?: existingUser.photoUrl
+                photoUrl = user.photoUrl ?: existingUser.photoUrl,
+                whatsappNumber = user.whatsappNumber ?: existingUser.whatsappNumber
             )
             appStore.setUser(mergedUser)
         } else {

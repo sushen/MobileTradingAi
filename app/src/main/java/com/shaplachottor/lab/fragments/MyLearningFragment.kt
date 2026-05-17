@@ -10,16 +10,15 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.shaplachottor.lab.R
 import com.shaplachottor.lab.adapters.PhaseAdapter
-import com.shaplachottor.lab.databinding.DialogBookingRequestBinding
 import com.shaplachottor.lab.databinding.FragmentMyLearningBinding
 import com.shaplachottor.lab.models.BookingRequestOutcome
 import com.shaplachottor.lab.models.Phase
 import com.shaplachottor.lab.models.PhaseProgressionSnapshot
 import com.shaplachottor.lab.models.PhaseProgressionState
 import com.shaplachottor.lab.repositories.PhaseRepository
+import com.shaplachottor.lab.util.BookingRequestDialog
 import com.shaplachottor.lab.viewmodels.MyLearningViewModel
 import kotlinx.coroutines.launch
 
@@ -89,7 +88,7 @@ class MyLearningFragment : Fragment() {
                         phase = phase,
                         state = PhaseProgressionState.COMPLETED,
                         badgeLabel = "COMPLETED",
-                        statusMessage = "Classroom progress reached 100%. Review this class anytime.",
+                        statusMessage = "100% complete. Review anytime.",
                         actionLabel = "Review Classroom",
                         isActionEnabled = true,
                         canEnterClassroom = true
@@ -119,36 +118,26 @@ class MyLearningFragment : Fragment() {
     }
 
     private fun showBookingRequestDialog(phase: Phase) {
-        val dialogBinding = DialogBookingRequestBinding.inflate(layoutInflater)
-        
-        viewModel.userData.value?.whatsappNumber?.let {
-            dialogBinding.etWhatsappNumber.setText(it)
-        }
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Request Seat")
-            .setMessage("Please provide your WhatsApp number for ${phase.title}")
-            .setView(dialogBinding.root)
-            .setPositiveButton("Submit") { _, _ ->
-                val whatsapp = dialogBinding.etWhatsappNumber.text.toString().trim()
-                if (whatsapp.isNotEmpty()) {
-                    performRequestSeat(phase, whatsapp)
-                } else {
-                    Toast.makeText(requireContext(), "WhatsApp number is required.", Toast.LENGTH_SHORT).show()
-                }
+        BookingRequestDialog.show(
+            context = requireContext(),
+            layoutInflater = layoutInflater,
+            phase = phase,
+            initialWhatsappNumber = viewModel.userData.value?.whatsappNumber,
+            onSubmit = { whatsapp, dialog ->
+                dialog.dismiss()
+                performRequestSeat(phase, whatsapp)
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        )
     }
 
     private fun performRequestSeat(phase: Phase, whatsapp: String) {
         viewLifecycleOwner.lifecycleScope.launch {
             val result = phaseRepository.requestSeat(phase, whatsapp)
             if (result.outcome == BookingRequestOutcome.REQUEST_CREATED) {
-                Toast.makeText(requireContext(), "Request submitted successfully", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Request submitted.", Toast.LENGTH_SHORT).show()
                 viewModel.loadUserData()
             } else {
-                Toast.makeText(requireContext(), "Request failed: ${result.outcome}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Request failed.", Toast.LENGTH_SHORT).show()
             }
         }
     }
